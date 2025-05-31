@@ -8,14 +8,18 @@ import (
 
 // OpenAI Provider (placeholder)
 type OpenAIProvider struct {
-	apiKey string
-	model  string
+	apiKey      string
+	model       string
+	maxTokens   int
+	temperature float32
 }
 
 func NewOpenAIProvider(cfg *config.Config) (*OpenAIProvider, error) {
 	return &OpenAIProvider{
-		apiKey: cfg.APIKey,
-		model:  cfg.Model,
+		apiKey:      cfg.APIKey,
+		model:       cfg.Model,
+		maxTokens:   cfg.MaxTokens,
+		temperature: cfg.Temperature,
 	}, nil
 }
 

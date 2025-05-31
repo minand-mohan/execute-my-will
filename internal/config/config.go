@@ -1,62 +1,91 @@
-// File: internal/config/config.go
 package config
 
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
-	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	AIProvider  string  `mapstructure:"provider"`
-	APIKey      string  `mapstructure:"api_key"`
-	Model       string  `mapstructure:"model"`
-	MaxTokens   int     `mapstructure:"max_tokens"`
-	Temperature float32 `mapstructure:"temperature"`
+	AIProvider  string  `yaml:"provider"`
+	APIKey      string  `yaml:"api_key"`
+	Model       string  `yaml:"model"`
+	MaxTokens   int     `yaml:"max_tokens"`
+	Temperature float32 `yaml:"temperature"`
 }
 
-// FromViper creates a Config from viper settings
-func FromViper() *Config {
-	var cfg Config
+type ConfigFile struct {
+	AI Config `yaml:"ai"`
+}
 
-	// Map the nested "ai" section to our config struct
-	if err := viper.UnmarshalKey("ai", &cfg); err != nil {
-		// If unmarshal fails, create config manually
-		cfg = Config{
-			AIProvider:  viper.GetString("ai.provider"),
-			APIKey:      viper.GetString("ai.api_key"),
-			Model:       viper.GetString("ai.model"),
-			MaxTokens:   viper.GetInt("ai.max_tokens"),
-			Temperature: float32(viper.GetFloat64("ai.temperature")),
-		}
+// New creates a new config with default values
+func New() *Config {
+	return &Config{
+		AIProvider:  "gemini",
+		APIKey:      "",
+		Model:       "gemini-pro",
+		MaxTokens:   1000,
+		Temperature: 0.1,
 	}
+}
+
+// Load loads configuration from file
+func Load() (*Config, error) {
+	configPath := getConfigPath()
+
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return nil, &ConfigNotFoundError{Path: configPath}
+	}
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	var configFile ConfigFile
+	if err := yaml.Unmarshal(data, &configFile); err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	cfg := configFile.AI
 
 	// Set default model if not provided
 	if cfg.Model == "" {
-		cfg.Model = getDefaultModel(cfg.AIProvider)
+		cfg.Model = GetDefaultModel(cfg.AIProvider)
 	}
 
-	return &cfg
+	return &cfg, nil
+}
+
+// Save saves configuration to file
+func Save(cfg *Config) error {
+	configPath := getConfigPath()
+
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	configFile := ConfigFile{AI: *cfg}
+
+	data, err := yaml.Marshal(&configFile)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
 }
 
 // Validate checks if the configuration is valid
 func (c *Config) Validate() error {
 	if c.APIKey == "" {
-		// Check environment variable as fallback
-		if envKey := os.Getenv("EXECUTE_MY_WILL_API_KEY"); envKey != "" {
-			c.APIKey = envKey
-		} else {
-			return fmt.Errorf("API key not configured. Set it via:\n" +
-				"  1. Flag: --api-key YOUR_KEY\n" +
-				"  2. Config file: ~/.execute-my-will.yaml\n" +
-				"  3. Environment: EXECUTE_MY_WILL_API_KEY=YOUR_KEY\n\n" +
-				"Example config file:\n" +
-				"ai:\n" +
-				"  provider: gemini\n" +
-				"  api_key: your-api-key-here\n" +
-				"  model: gemini-pro")
-		}
+		return fmt.Errorf("API key is required. Run 'execute-my-will configure' to set it up")
 	}
 
 	if c.AIProvider == "" {
@@ -67,18 +96,52 @@ func (c *Config) Validate() error {
 		c.MaxTokens = 1000
 	}
 
+	if c.Temperature < 0 || c.Temperature > 1 {
+		c.Temperature = 0.1
+	}
+
+	// Set default model if not provided
+	if c.Model == "" {
+		c.Model = GetDefaultModel(c.AIProvider)
+	}
+
 	return nil
 }
 
-func getDefaultModel(provider string) string {
+// GetDefaultModel returns the default model for a provider
+func GetDefaultModel(provider string) string {
 	switch provider {
 	case "gemini":
-		return "gemini-2.0-flash"
+		return "gemini-pro"
 	case "openai":
 		return "gpt-3.5-turbo"
 	case "anthropic":
 		return "claude-3-sonnet-20240229"
 	default:
-		return "gemini-2.0-flash"
+		return "gemini-pro"
 	}
+}
+
+func getConfigPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Fallback to current directory
+		return ".execute-my-will.yaml"
+	}
+	return filepath.Join(home, ".execute-my-will.yaml")
+}
+
+// ConfigNotFoundError represents a missing config file error
+type ConfigNotFoundError struct {
+	Path string
+}
+
+func (e *ConfigNotFoundError) Error() string {
+	return fmt.Sprintf("config file not found at %s", e.Path)
+}
+
+// IsConfigNotFound checks if the error is a config not found error
+func IsConfigNotFound(err error) bool {
+	_, ok := err.(*ConfigNotFoundError)
+	return ok
 }

@@ -10,7 +10,7 @@ import (
 
 func main() {
 	if err := cli.Execute(); err != nil {
-		log.Printf("Noble quest has failed: %v", err)
+		log.Printf("Noble quest has failed!")
 		os.Exit(1)
 	}
 }

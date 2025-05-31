@@ -1,3 +1,4 @@
+// File: internal/ai/anthropic.go
 package ai
 
 import (
@@ -8,14 +9,18 @@ import (
 
 // Anthropic Provider (placeholder)
 type AnthropicProvider struct {
-	apiKey string
-	model  string
+	apiKey      string
+	model       string
+	maxTokens   int
+	temperature float32
 }
 
 func NewAnthropicProvider(cfg *config.Config) (*AnthropicProvider, error) {
 	return &AnthropicProvider{
-		apiKey: cfg.APIKey,
-		model:  cfg.Model,
+		apiKey:      cfg.APIKey,
+		model:       cfg.Model,
+		maxTokens:   cfg.MaxTokens,
+		temperature: cfg.Temperature,
 	}, nil
 }
 
