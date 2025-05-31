@@ -1,3 +1,4 @@
+// File: internal/ai/gemini.go
 package ai
 
 import (
@@ -12,9 +13,10 @@ import (
 
 // Gemini Provider
 type GeminiProvider struct {
-	apiKey    string
-	model     string
-	maxTokens int
+	apiKey      string
+	model       string
+	maxTokens   int
+	temperature float32
 }
 
 type GeminiRequest struct {
@@ -45,9 +47,10 @@ type GeminiCandidate struct {
 
 func NewGeminiProvider(cfg *config.Config) (*GeminiProvider, error) {
 	return &GeminiProvider{
-		apiKey:    cfg.APIKey,
-		model:     cfg.Model,
-		maxTokens: cfg.MaxTokens,
+		apiKey:      cfg.APIKey,
+		model:       cfg.Model,
+		maxTokens:   cfg.MaxTokens,
+		temperature: cfg.Temperature,
 	}, nil
 }
 
@@ -64,7 +67,7 @@ func (g *GeminiProvider) GenerateResponse(prompt string) (string, error) {
 		},
 		GenerationConfig: GeminiGenerationConfig{
 			MaxOutputTokens: g.maxTokens,
-			Temperature:     0.1,
+			Temperature:     g.temperature,
 		},
 	}
 

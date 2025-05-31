@@ -11,10 +11,7 @@ import (
 	"github.com/minand-mohan/execute-my-will/internal/config"
 	"github.com/minand-mohan/execute-my-will/internal/system"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
-
-var cfgFile string
 
 var rootCmd = &cobra.Command{
 	Use:   "execute-my-will [intent]",
@@ -29,71 +26,27 @@ func Execute() error {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
-	// Global flags
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.execute-my-will.yaml)")
-	rootCmd.PersistentFlags().String("provider", "gemini", "AI provider (gemini, openai, anthropic)")
-	rootCmd.PersistentFlags().String("api-key", "", "API key for the AI provider")
-	rootCmd.PersistentFlags().String("model", "", "Model to use (default varies by provider)")
-	rootCmd.PersistentFlags().Int("max-tokens", 1000, "Maximum tokens for AI response")
-	rootCmd.PersistentFlags().Float32("temperature", 0.1, "Temperature for AI response")
-
-	// Bind flags to viper
-	viper.BindPFlag("ai.provider", rootCmd.PersistentFlags().Lookup("provider"))
-	viper.BindPFlag("ai.api_key", rootCmd.PersistentFlags().Lookup("api-key"))
-	viper.BindPFlag("ai.model", rootCmd.PersistentFlags().Lookup("model"))
-	viper.BindPFlag("ai.max_tokens", rootCmd.PersistentFlags().Lookup("max-tokens"))
-	viper.BindPFlag("ai.temperature", rootCmd.PersistentFlags().Lookup("temperature"))
-}
-
-func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".execute-my-will" (without extension)
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".execute-my-will")
-	}
-
-	// Environment variables
-	viper.SetEnvPrefix("EXECUTE_MY_WILL")
-	viper.AutomaticEnv()
-
-	// Set defaults
-	viper.SetDefault("ai.provider", "gemini")
-	viper.SetDefault("ai.max_tokens", 1000)
-	viper.SetDefault("ai.temperature", 0.1)
-	viper.SetDefault("ai.model", getDefaultModel(viper.GetString("ai.provider")))
-
-	// Read config file
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Printf("🔧 Using config file: %s\n", viper.ConfigFileUsed())
-	}
-}
-
-func getDefaultModel(provider string) string {
-	switch provider {
-	case "gemini":
-		return "gemini-2.0-flash"
-	case "openai":
-		return "gpt-3.5-turbo"
-	case "anthropic":
-		return "claude-3-sonnet-20240229"
-	default:
-		return "gemini-2.0-flash"
-	}
+	// Add configure subcommand
+	rootCmd.AddCommand(configureCmd)
 }
 
 func executeWill(cmd *cobra.Command, args []string) error {
-	// Load configuration from viper
-	cfg := config.FromViper()
+	// Check if config file exists, if not prompt user to configure
+	cfg, err := config.Load()
+	if err != nil {
+		if config.IsConfigNotFound(err) {
+			fmt.Println("🔧 Configuration file not found, my lord!")
+			fmt.Println("📋 Please run 'execute-my-will configure' to set up your configuration first.")
+			fmt.Println()
+			fmt.Println("Example:")
+			fmt.Println("  execute-my-will configure")
+			fmt.Println("  # or set specific values:")
+			fmt.Println("  execute-my-will configure --api-key your-key --provider gemini")
+			return nil
+		}
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("configuration error, sire: %w", err)
 	}
