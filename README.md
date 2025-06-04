@@ -1,4 +1,3 @@
-// File: README.md
 # Execute My Will
 
 A CLI application that interprets natural language intents and executes appropriate system commands with your permission.
