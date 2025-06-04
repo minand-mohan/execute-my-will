@@ -25,6 +25,7 @@ func init() {
 	configureCmd.Flags().String("model", "", "Model to use (uses provider defaults if not specified)")
 	configureCmd.Flags().Int("max-tokens", 0, "Maximum tokens for AI response")
 	configureCmd.Flags().Float32("temperature", -1, "Temperature for AI response (0.0-1.0)")
+	configureCmd.Flags().String("mode", "", "Execution mode: monarch or royal-heir")
 }
 
 func runConfigure(cmd *cobra.Command, args []string) error {
@@ -36,7 +37,8 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 		cmd.Flags().Changed("api-key") ||
 		cmd.Flags().Changed("model") ||
 		cmd.Flags().Changed("max-tokens") ||
-		cmd.Flags().Changed("temperature")
+		cmd.Flags().Changed("temperature") ||
+		cmd.Flags().Changed("mode")
 
 	// Load existing config or create new one
 	cfg, err := config.Load()
@@ -72,6 +74,11 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 		if cmd.Flags().Changed("temperature") {
 			temperature, _ := cmd.Flags().GetFloat32("temperature")
 			cfg.Temperature = temperature
+		}
+
+		if cmd.Flags().Changed("mode") {
+			mode, _ := cmd.Flags().GetString("mode")
+			cfg.Mode = mode
 		}
 
 		fmt.Println("📝 Updating configuration with provided values...")
@@ -158,6 +165,37 @@ func runInteractiveConfiguration(cfg *config.Config) error {
 		}
 	}
 
+	// Configure Mode (new)
+	fmt.Println()
+	fmt.Println("👑 Execution Mode Configuration:")
+	fmt.Println("   🤴 monarch     - For experienced rulers who know their domain well")
+	fmt.Println("                   Commands are shown without detailed explanations")
+	fmt.Println("   👑 royal-heir  - For heirs still learning the ways of the realm")
+	fmt.Println("                   Commands are shown with detailed explanations of each part")
+	fmt.Println()
+
+	for {
+		currentMode := cfg.Mode
+		if currentMode == "" {
+			currentMode = "not set"
+		}
+		fmt.Printf("🎯 Choose your mode [%s]: ", currentMode)
+		if input := readInput(reader); input != "" {
+			input = strings.ToLower(strings.TrimSpace(input))
+			if input == "monarch" || input == "royal-heir" {
+				cfg.Mode = input
+				break
+			} else {
+				fmt.Println("❌ Invalid mode. Please choose either 'monarch' or 'royal-heir'")
+			}
+		} else if cfg.Mode != "" {
+			// Keep existing mode
+			break
+		} else {
+			fmt.Println("❌ Mode is required. Please choose either 'monarch' or 'royal-heir'")
+		}
+	}
+
 	return nil
 }
 
@@ -213,7 +251,18 @@ func displayConfiguration(cfg *config.Config) {
 	fmt.Printf("│ Model:        %-25s │\n", cfg.Model)
 	fmt.Printf("│ Max Tokens:   %-25d │\n", cfg.MaxTokens)
 	fmt.Printf("│ Temperature:  %-25.1f │\n", cfg.Temperature)
+	fmt.Printf("│ Mode:         %-25s │\n", cfg.Mode)
 	fmt.Println("└─────────────────────────────────────────┘")
+	fmt.Println()
+
+	if cfg.Mode == "monarch" {
+		fmt.Println("🤴 You have chosen the path of the experienced monarch!")
+		fmt.Println("   Commands will be shown without detailed explanations.")
+	} else {
+		fmt.Println("👑 You have chosen the path of the learning heir!")
+		fmt.Println("   Commands will be shown with detailed explanations to aid your learning.")
+	}
+
 	fmt.Println()
 	fmt.Println("🎯 Your knight is now ready to serve!")
 	fmt.Println("💡 Try: execute-my-will \"list my files\"")

@@ -14,6 +14,7 @@ type Config struct {
 	Model       string  `yaml:"model"`
 	MaxTokens   int     `yaml:"max_tokens"`
 	Temperature float32 `yaml:"temperature"`
+	Mode        string  `yaml:"mode"` // field for monarch/royal-heir modes
 }
 
 type ConfigFile struct {
@@ -28,6 +29,7 @@ func New() *Config {
 		Model:       "gemini-pro",
 		MaxTokens:   1000,
 		Temperature: 0.1,
+		Mode:        "", // Empty by default, requires configuration
 	}
 }
 
@@ -86,6 +88,14 @@ func Save(cfg *Config) error {
 func (c *Config) Validate() error {
 	if c.APIKey == "" {
 		return fmt.Errorf("API key is required. Run 'execute-my-will configure' to set it up")
+	}
+
+	if c.Mode == "" {
+		return fmt.Errorf("mode is required. I must know who I serve. Run 'execute-my-will configure' to set your preferred mode (monarch or royal-heir)")
+	}
+
+	if c.Mode != "monarch" && c.Mode != "royal-heir" {
+		return fmt.Errorf("invalid mode '%s'. I only serve the 'monarch' or the 'royal-heir'", c.Mode)
 	}
 
 	if c.AIProvider == "" {
