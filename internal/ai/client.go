@@ -1,4 +1,4 @@
-// File: internal/ai/client.go
+// File: internal/cli/configure.go
 package ai
 
 import (
@@ -10,6 +10,7 @@ import (
 
 type Client interface {
 	GenerateCommand(intent string, sysInfo *system.Info) (string, error)
+	ExplainCommand(command string, sysInfo *system.Info) (string, error) // New method
 }
 
 type clientImpl struct {
@@ -39,11 +40,16 @@ func NewClient(cfg *config.Config) (Client, error) {
 }
 
 func (c *clientImpl) GenerateCommand(intent string, sysInfo *system.Info) (string, error) {
-	prompt := buildPrompt(intent, sysInfo)
+	prompt := buildCommandPrompt(intent, sysInfo)
 	return c.provider.GenerateResponse(prompt)
 }
 
-func buildPrompt(intent string, sysInfo *system.Info) string {
+func (c *clientImpl) ExplainCommand(command string, sysInfo *system.Info) (string, error) {
+	prompt := buildExplanationPrompt(command, sysInfo)
+	return c.provider.GenerateResponse(prompt)
+}
+
+func buildCommandPrompt(intent string, sysInfo *system.Info) string {
 	prompt := fmt.Sprintf(`You are a command line expert for %s systems. Generate a single, safe command based on the user's intent.
 
 SYSTEM INFORMATION:
@@ -79,6 +85,37 @@ COMMAND:`,
 		sysInfo.HomeDir,
 		formatAliases(sysInfo.Aliases),
 		intent,
+	)
+
+	return prompt
+}
+
+func buildExplanationPrompt(command string, sysInfo *system.Info) string {
+	prompt := fmt.Sprintf(`You are a patient teacher explaining command line operations to a learning student. Provide a clear, educational explanation of the given command.
+
+SYSTEM INFORMATION:
+- OS: %s
+- Shell: %s
+- Current Directory: %s
+- Home Directory: %s
+
+COMMAND TO EXPLAIN: %s
+
+REQUIREMENTS:
+1. Break down each part of the command and explain what it does
+2. Use clear, beginner-friendly language
+3. Explain any flags, options, or arguments used
+4. Mention any important safety considerations
+5. If the command involves multiple parts (pipes, &&, etc.), explain the flow
+6. Keep the explanation concise but thorough
+7. Use a teaching tone that is encouraging and informative
+
+EXPLANATION:`,
+		sysInfo.OS,
+		sysInfo.Shell,
+		sysInfo.CurrentDir,
+		sysInfo.HomeDir,
+		command,
 	)
 
 	return prompt

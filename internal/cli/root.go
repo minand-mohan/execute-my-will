@@ -31,6 +31,9 @@ func Execute() error {
 func init() {
 	// Add configure subcommand
 	rootCmd.AddCommand(configureCmd)
+
+	// Add mode flag
+	rootCmd.Flags().String("mode", "", "Execution mode: monarch (no explanations) or royal-heir (detailed explanations)")
 }
 
 func executeWill(cmd *cobra.Command, args []string) error {
@@ -44,10 +47,16 @@ func executeWill(cmd *cobra.Command, args []string) error {
 			fmt.Println("Example:")
 			fmt.Println("  execute-my-will configure")
 			fmt.Println("  # or set specific values:")
-			fmt.Println("  execute-my-will configure --api-key your-key --provider gemini")
+			fmt.Println("  execute-my-will configure --api-key your-key --provider gemini --mode monarch")
 			return nil
 		}
 		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	// Override mode from flag if provided
+	if cmd.Flags().Changed("mode") {
+		mode, _ := cmd.Flags().GetString("mode")
+		cfg.Mode = mode
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -93,8 +102,24 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	fmt.Printf("\n⚔️  I propose to execute this command on your behalf:\n")
 	fmt.Printf("   %s\n\n", command)
 
+	// If in royal-heir mode, provide detailed explanation
+	if cfg.Mode == "royal-heir" {
+		fmt.Println("📚 As you are still learning the ways of the realm, allow me to explain each part:")
+		explanation, err := aiClient.ExplainCommand(command, sysInfo)
+		if err != nil {
+			fmt.Printf("⚠️  I encountered difficulty explaining the command, but it should still work, my lord: %v\n\n", err)
+		} else {
+			fmt.Printf("%s\n\n", explanation)
+		}
+	}
+
 	// Ask for confirmation
-	fmt.Print("🤴 Do you wish me to proceed with this quest? (y/N): ")
+	if cfg.Mode == "monarch" {
+		fmt.Print("🤴 Do you wish me to proceed with this quest? (y/N): ")
+	} else {
+		fmt.Print("👑 Do you wish me to proceed with this quest, young heir? (y/N): ")
+	}
+
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
 	if err != nil {
