@@ -19,6 +19,9 @@ var rootCmd = &cobra.Command{
 	Long:  "A CLI application that interprets your natural language intent and executes the appropriate system commands with your permission, my lord.",
 	Args:  cobra.MinimumNArgs(1),
 	RunE:  executeWill,
+	CompletionOptions: cobra.CompletionOptions{
+		DisableDefaultCmd: true,
+	},
 }
 
 func Execute() error {
