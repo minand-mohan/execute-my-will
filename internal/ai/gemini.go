@@ -100,5 +100,21 @@ func (g *GeminiProvider) GenerateResponse(prompt string) (string, error) {
 		return "", fmt.Errorf("no response generated")
 	}
 
+	responseText := response.Candidates[0].Content.Parts[0].Text
+
+	// Handle failure cases as defined in the prompt
+	if responseText == "FAILURE: Intent too complex for a single shell command." {
+		return "", fmt.Errorf("intent too complex for a single shell command, might need merlin")
+	}
+
+	if responseText == "FAILURE: Directory reference too vague." {
+		return "", fmt.Errorf("directory reference too vague - please specify exact paths. the map instructions are not clear")
+	}
+
+	// Check for any other FAILURE responses
+	if len(responseText) >= 8 && responseText[:8] == "FAILURE:" {
+		return "", fmt.Errorf("command generation failed: %s", responseText[9:])
+	}
+
 	return response.Candidates[0].Content.Parts[0].Text, nil
 }

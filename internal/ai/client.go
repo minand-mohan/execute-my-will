@@ -67,12 +67,17 @@ USER ALIASES:
 USER INTENT: %s
 
 REQUIREMENTS:
-1. Generate ONLY the command, no explanations
-2. If a command is not installed, prefix with installation command using the system's package manager
-3. Use absolute paths when ambiguous
-4. Consider existing aliases
-5. Make the command safe and non-destructive when possible
-6. For shell-specific operations, use the detected shell syntax
+1. Output must be a SINGLE shell command with NO formatting or enclosure — no backticks, no quotes, no markdown.
+2. The command must be ONE LINE ONLY and ready to paste directly into a terminal.
+3. Do NOT return scripts or use line continuations ('\') or multiple commands on separate lines.
+4. If the task is too complex to express as one command, respond only with: FAILURE: Intent too complex for a single shell command.
+5. If the intent involves directories (e.g., copy, move, list, extract), all directory paths must be absolute and clearly specified.
+6. If any directory reference is vague (e.g., “some folder”, “the project directory”), respond only with: FAILURE: Directory reference too vague.
+7. Use known aliases if applicable.
+8. If the command is not available, prepend it with an install command using the detected package manager.
+9. Use safe and non-destructive flags when possible.
+10. Use proper syntax for the detected shell.
+11. Return only the command — no comments, no explanations, no headers.
 
 COMMAND:`,
 		sysInfo.OS,
