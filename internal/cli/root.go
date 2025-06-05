@@ -132,13 +132,26 @@ func executeWill(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Execute the command
+	// Execute the command with enhanced interactive support
 	fmt.Println("⚡ Executing your command with honor...")
+	fmt.Println("") // Add some space before command execution
+
 	executor := system.NewExecutor()
 	if err := executor.Execute(command); err != nil {
-		return fmt.Errorf("the quest has encountered difficulties, my lord: %w", err)
+		fmt.Printf("\n⚔️  Alas! The quest has encountered difficulties, my lord: %v\n", err)
+
+		// Check if it's a common issue and provide helpful suggestions
+		if strings.Contains(err.Error(), "permission denied") {
+			fmt.Println("💡 This might require elevated privileges. Consider adding 'sudo' to your request if appropriate.")
+		} else if strings.Contains(err.Error(), "command not found") {
+			fmt.Println("💡 The command appears to be missing. The system may need to install required packages first.")
+		} else if strings.Contains(err.Error(), "no such file or directory") {
+			fmt.Println("💡 Please ensure all file paths in your request are correct and accessible.")
+		}
+
+		return nil // Don't return the error to avoid double error messages
 	}
 
-	fmt.Println("✅ Your command has been executed successfully, sire!")
+	fmt.Printf("\n🏆 Your command has been executed successfully, sire!\n")
 	return nil
 }
