@@ -83,25 +83,69 @@ func (ev *EnvironmentValidator) extractCoreCommand(command string) string {
 		}
 	}
 
-	// Handle command chaining - analyze the first significant command
+	// Handle command chaining - analyze commands to find environment-affecting ones
 	// Split by && and || and ; to get individual commands
 	separators := []string{" && ", " || ", " ; ", "; "}
 	for _, sep := range separators {
 		if strings.Contains(command, sep) {
 			parts := strings.Split(command, sep)
-			// Find the first non-install command
+			// Look for environment-affecting commands, prioritizing them over install commands
+			var firstNonInstall string
+
 			for _, part := range parts {
 				trimmed := strings.TrimSpace(part)
-				if trimmed != "" && !ev.isInstallCommand(trimmed) {
-					command = trimmed
-					break
+				if trimmed == "" {
+					continue
 				}
+
+				// Check if this command looks like it affects environment
+				if ev.looksLikeEnvironmentCommand(trimmed) {
+					return trimmed
+				}
+
+				// Keep track of first non-install command as fallback
+				if firstNonInstall == "" && !ev.isInstallCommand(trimmed) {
+					firstNonInstall = trimmed
+				}
+			}
+
+			// If we found a non-install command, use it
+			if firstNonInstall != "" {
+				command = firstNonInstall
 			}
 			break
 		}
 	}
 
 	return strings.TrimSpace(command)
+}
+
+// looksLikeEnvironmentCommand does a quick check to see if a command might affect environment
+func (ev *EnvironmentValidator) looksLikeEnvironmentCommand(command string) bool {
+	envKeywords := []string{
+		"export", "source", ".", "cd", "alias", "unalias", "conda", "activate",
+		"deactivate", "nvm", "rbenv", "pyenv", "set", "unset", "module", "ml",
+	}
+
+	for _, keyword := range envKeywords {
+		if strings.HasPrefix(command, keyword+" ") || command == keyword {
+			return true
+		}
+	}
+
+	// Check for variable assignments
+	if strings.Contains(command, "=") && !strings.Contains(command, "==") {
+		parts := strings.Split(command, "=")
+		if len(parts) >= 2 {
+			varName := strings.TrimSpace(parts[0])
+			// Check if it looks like a variable name (starts with letter/underscore)
+			if len(varName) > 0 && (varName[0] >= 'A' && varName[0] <= 'Z' || varName[0] == '_') {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // isInstallCommand checks if the command is an installation command (these are OK to run in subshell)

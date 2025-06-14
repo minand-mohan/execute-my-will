@@ -60,6 +60,12 @@ func TestEnvironmentValidator(t *testing.T) {
 			shouldError:    true,
 			expectedReason: "path_modification",
 		},
+		{
+			name:           "export with sudo",
+			command:        "which python && export PYTHON_ENV=$(which python)",
+			shouldError:    true,
+			expectedReason: "export",
+		},
 
 		// CD commands
 		{
