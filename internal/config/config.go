@@ -136,9 +136,9 @@ func getConfigPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		// Fallback to current directory
-		return ".execute-my-will.yaml"
+		return "config.yaml"
 	}
-	return filepath.Join(home, ".execute-my-will.yaml")
+	return filepath.Join(home, ".config/execute-my-will/config.yaml")
 }
 
 // ConfigNotFoundError represents a missing config file error

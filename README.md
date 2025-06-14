@@ -86,7 +86,7 @@ Set specific configuration values using flags:
 ```
 
 ### Configuration File
-The configuration is stored in `~/.execute-my-will.yaml`:
+The configuration is stored in `~/.config/execute-my-will/config.yaml`:
 
 ```yaml
 ai:
