@@ -96,24 +96,18 @@ COMMAND:`,
 }
 
 func buildExplanationPrompt(command string, sysInfo *system.Info) string {
-	prompt := fmt.Sprintf(`You are a patient teacher explaining command line operations to a learning student. Provide a clear, educational explanation of the given command.
+	prompt := fmt.Sprintf(`You are an expert explaining command-line instructions to someone new to the terminal.
 
-SYSTEM INFORMATION:
+SYSTEM INFO:
 - OS: %s
 - Shell: %s
-- Current Directory: %s
-- Home Directory: %s
+- Current Dir: %s
+- Home Dir: %s
 
-COMMAND TO EXPLAIN: %s
+COMMAND: %s
 
-REQUIREMENTS:
-1. Break down each part of the command and explain what it does
-2. Use clear, beginner-friendly language
-3. Explain any flags, options, or arguments used
-4. Mention any important safety considerations
-5. If the command involves multiple parts (pipes, &&, etc.), explain the flow
-6. Keep the explanation concise but thorough
-7. Use a teaching tone that is encouraging and informative
+INSTRUCTIONS:
+Explain what this command does in one clear, simple paragraph. Break down the parts in plain English, avoiding technical jargon where possible. Focus on what the command does, what each part means, and why someone might use it. Be friendly, helpful, and avoid assuming any prior knowledge of the shell.
 
 EXPLANATION:`,
 		sysInfo.OS,
