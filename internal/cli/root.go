@@ -113,6 +113,17 @@ func executeWill(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Validate if the command affects the environment
+	envValidator := system.NewEnvironmentValidator(sysInfo)
+	if err := envValidator.ValidateEnvironmentCommand(command); err != nil {
+		if envErr, ok := err.(*system.EnvironmentCommandError); ok {
+			fmt.Println()
+			fmt.Println(envErr.GetKnightlyMessage())
+			return nil
+		}
+		return fmt.Errorf("environment validation failed: %w", err)
+	}
+
 	// Ask for confirmation
 	if cfg.Mode == "monarch" {
 		fmt.Print("🤴 Do you wish me to proceed with this quest? (y/N): ")
