@@ -100,17 +100,20 @@ func executeWill(cmd *cobra.Command, args []string) error {
 
 	// Display the command for confirmation
 	fmt.Printf("\n⚔️  I propose to execute this command on your behalf:\n")
-	fmt.Printf("   %s\n\n", command)
+	fmt.Printf("   %s\n", command)
 
 	// If in royal-heir mode, provide detailed explanation
 	if cfg.Mode == "royal-heir" {
+		fmt.Println("================================================")
+		fmt.Println("")
 		fmt.Println("📚 As you are still learning the ways of the realm, allow me to explain each part:")
 		explanation, err := aiClient.ExplainCommand(command, sysInfo)
 		if err != nil {
 			fmt.Printf("⚠️  I encountered difficulty explaining the command, but it should still work, my lord: %v\n\n", err)
 		} else {
-			fmt.Printf("%s\n\n", explanation)
+			fmt.Printf("%s\n", explanation)
 		}
+		fmt.Println("================================================")
 	}
 
 	// Validate if the command affects the environment

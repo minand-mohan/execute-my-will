@@ -488,11 +488,9 @@ func (e *EnvironmentCommandError) Error() string {
 
 func (e *EnvironmentCommandError) GetKnightlyMessage() string {
 	return fmt.Sprintf(`🏰 I cannot change the realm's environment for you, sire, as %s.
-
 ⚔️  However, here is the command you should execute in your own noble shell:
 
     %s
-
 🛡️  Execute this command directly in your terminal to affect your current environment.`,
 		e.Explanation, e.Command)
 }
