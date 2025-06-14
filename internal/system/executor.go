@@ -26,8 +26,6 @@ func (e *Executor) Execute(command string) error {
 	fmt.Printf("🗡️  Executing thy will, my lord: %s\n", command)
 	fmt.Println("═══════════════════════════════════════════════════════")
 
-	// For commands that need full terminal emulation, we can use a pseudo-terminal
-	// This requires the golang.org/x/term package
 	cmd := exec.Command(shell, "-c", command)
 
 	// Direct I/O connection - simplest and most compatible approach
