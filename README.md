@@ -172,13 +172,13 @@ You can temporarily override your configured mode for a single command:
 ```
 Default model: `gemini-pro`
 
-### OpenAI (Coming Soon)
+### OpenAI
 ```bash
 ./execute-my-will configure --provider openai --api-key sk-your-openai-key
 ```
 Default model: `gpt-3.5-turbo`
 
-### Anthropic (Coming Soon)  
+### Anthropic 
 ```bash
 ./execute-my-will configure --provider anthropic --api-key your-anthropic-key
 ```
