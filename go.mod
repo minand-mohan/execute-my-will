@@ -1,6 +1,6 @@
 module github.com/minand-mohan/execute-my-will
 
-go 1.24.2
+go 1.24.4
 
 require (
 	github.com/spf13/cobra v1.9.1
