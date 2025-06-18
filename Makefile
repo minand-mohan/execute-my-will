@@ -62,7 +62,7 @@ build-all: clean ## Build for all platforms
 		arch=$$(echo $$platform | cut -d'/' -f2); \
 		ext=""; \
 		if [ "$$os" = "windows" ]; then ext=".exe"; fi; \
-		output="$(BUILD_DIR)/$(APP_NAME)-$$os-$$arch$$ext"; \
+		output="$(BUILD_DIR)/$(APP_NAME)-$(VERSION)-$$os-$$arch$$ext"; \
 		echo "$(YELLOW)Building for $$os/$$arch...$(NC)"; \
 		GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 go build $(LDFLAGS) -o $$output ./$(CMD_DIR); \
 		if [ $$? -eq 0 ]; then \
