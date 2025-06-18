@@ -1,3 +1,6 @@
+//go:build windows
+// +build windows
+
 package system
 
 import (
@@ -9,42 +12,35 @@ import (
 
 type Executor struct{}
 
-// NewExecutor creates a new executor instance
 func NewExecutor() *Executor {
 	return &Executor{}
 }
 
-// Execute runs the command with full interactive terminal support
 func (e *Executor) Execute(command string) error {
-
-	// Determine shell to use
-	shell := os.Getenv("SHELL")
+	// Use the standard Windows shell
+	shell := os.Getenv("ComSpec")
 	if shell == "" {
-		shell = "/bin/bash"
+		shell = "powershell.exe"
 	}
 
 	fmt.Printf("🗡️  Executing thy will, my lord: %s\n", command)
 	fmt.Println("═══════════════════════════════════════════════════════")
 
-	cmd := exec.Command(shell, "-c", command)
+	cmd := exec.Command(shell, "/C", command)
 
-	// Direct I/O connection - simplest and most compatible approach
+	// Hook I/O streams
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	// Ensure the command runs in the foreground
+	// Ensure it runs in the same console
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Foreground: true,
-		Pgid:       0,
+		CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP,
+		HideWindow:    false,
 	}
 
 	err := cmd.Run()
 
 	fmt.Println("═══════════════════════════════════════════════════════")
-
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
