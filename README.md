@@ -3,6 +3,11 @@
 A CLI application that interprets natural language intents and executes appropriate system commands with your permission.
 (A digital knight that executes your will)
 
+## Demo Videos
+
+- [Windows](docs/videos/windows-demo-execute-my-will.mp4)
+- [Linux](docs/videos/ubuntu-demo-execute-my-will.mp4)
+
 ## Features
 
 - Natural language command interpretation
@@ -26,7 +31,7 @@ go build -o execute-my-will cmd/execute-my-will/main.go
    ```bash
    ./execute-my-will configure
    ```
-   
+
    This will start an interactive configuration session where you'll set:
    - AI Provider (gemini, openai, anthropic)
    - API Key (required)
@@ -49,7 +54,7 @@ go build -o execute-my-will cmd/execute-my-will/main.go
 - Quick confirmation prompts
 - Ideal for users comfortable with command-line operations
 
-### Royal-Heir Mode  
+### Royal-Heir Mode
 **For learning users who want to understand**
 - Educational experience with detailed explanations
 - Shows both the command AND a comprehensive explanation
@@ -105,7 +110,7 @@ You can temporarily override your configured mode for a single command:
 # Use monarch mode for this command only
 ./execute-my-will --mode monarch "install docker"
 
-# Use royal-heir mode for this command only  
+# Use royal-heir mode for this command only
 ./execute-my-will --mode royal-heir "setup nginx reverse proxy"
 ```
 
@@ -116,7 +121,7 @@ You can temporarily override your configured mode for a single command:
 ./execute-my-will "list my files"
 ./execute-my-will "copy file.txt to backup directory"
 
-# System operations  
+# System operations
 ./execute-my-will "add /usr/local/bin to my PATH permanently"
 ./execute-my-will "install docker"
 
@@ -178,7 +183,7 @@ Default model: `gemini-pro`
 ```
 Default model: `gpt-3.5-turbo`
 
-### Anthropic 
+### Anthropic
 ```bash
 ./execute-my-will configure --provider anthropic --api-key your-anthropic-key
 ```
@@ -200,6 +205,6 @@ Choose your path:
 
 **Command validation errors**: The application validates directory references and command safety. Make sure referenced paths exist and are accessible.
 
-**Mode selection guidance**: 
+**Mode selection guidance**:
 - Choose **monarch** if you're comfortable with command-line operations and prefer quick execution
 - Choose **royal-heir** if you're learning or want to understand what commands do before executing them
