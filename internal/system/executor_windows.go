@@ -1,5 +1,5 @@
 // Copyright (c) 2025 Minand Nellipunath Manomohanan
-// 
+//
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
@@ -21,12 +21,7 @@ func NewExecutor() *Executor {
 	return &Executor{}
 }
 
-func (e *Executor) Execute(command string) error {
-	// Use the standard Windows shell
-	shell := os.Getenv("ComSpec")
-	if shell == "" {
-		shell = "powershell.exe"
-	}
+func (e *Executor) Execute(command string, shell string) error {
 
 	fmt.Printf("🗡️  Executing thy will, my lord: %s\n", command)
 	fmt.Println("═══════════════════════════════════════════════════════")

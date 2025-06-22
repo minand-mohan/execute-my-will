@@ -1,5 +1,5 @@
 // Copyright (c) 2025 Minand Nellipunath Manomohanan
-// 
+//
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
@@ -23,13 +23,7 @@ func NewExecutor() *Executor {
 }
 
 // Execute runs the command with full interactive terminal support
-func (e *Executor) Execute(command string) error {
-
-	// Determine shell to use
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		shell = "/bin/bash"
-	}
+func (e *Executor) Execute(command string, shell string) error {
 
 	fmt.Printf("🗡️  Executing thy will, my lord: %s\n", command)
 	fmt.Println("═══════════════════════════════════════════════════════")

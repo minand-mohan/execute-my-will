@@ -1,5 +1,5 @@
 // Copyright (c) 2025 Minand Nellipunath Manomohanan
-// 
+//
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
@@ -156,7 +156,7 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	fmt.Println("") // Add some space before command execution
 
 	executor := system.NewExecutor()
-	if err := executor.Execute(command); err != nil {
+	if err := executor.Execute(command, sysInfo.Shell); err != nil {
 		fmt.Printf("\n⚔️  Alas! The quest has encountered difficulties, my lord: %v\n", err)
 
 		// Check if it's a common issue and provide helpful suggestions
