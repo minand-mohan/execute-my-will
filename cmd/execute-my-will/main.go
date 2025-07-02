@@ -13,7 +13,16 @@ import (
 	"github.com/minand-mohan/execute-my-will/internal/cli"
 )
 
+var (
+	version   = "dev"
+	commit    = "unknown"
+	buildTime = "unknown"
+)
+
 func main() {
+	/// Set the build information in the cli package
+	cli.SetBuildInfo(version, commit, buildTime)
+
 	if err := cli.Execute(); err != nil {
 		log.Printf("Noble quest has failed!")
 		os.Exit(1)
