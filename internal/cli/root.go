@@ -30,24 +30,8 @@ var rootCmd = &cobra.Command{
 	Use:   "execute-my-will [intent]",
 	Short: "Your faithful digital knight, ready to execute your commands",
 	Long:  "A CLI application that interprets your natural language intent and executes the appropriate system commands with your permission, my lord.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// If the version flag is set, print the version and exit.
-		if versionFlag {
-			fmt.Printf("execute-my-will: version %s\n", appVersion)
-			if appCommit != "" && appCommit != "unknown" {
-				fmt.Printf("commit: %s\n", appCommit)
-			}
-			if appBuildTime != "" && appBuildTime != "unknown" {
-				fmt.Printf("built: %s\n", appBuildTime)
-			}
-			return nil
-		}
-		// Otherwise, require the intent argument.
-		if err := cobra.MinimumNArgs(1)(cmd, args); err != nil {
-			return err
-		}
-		return executeWill(cmd, args)
-	},
+	Args:  cobra.RangeArgs(0, 1),
+	RunE:  executeWill,
 	CompletionOptions: cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	},
@@ -76,6 +60,26 @@ func init() {
 }
 
 func executeWill(cmd *cobra.Command, args []string) error {
+	if versionFlag {
+		fmt.Print("execute-my-will\n")
+		fmt.Printf("Version: %s\n", appVersion)
+		if appCommit != "" && appCommit != "unknown" {
+			fmt.Printf("Commit: %s\n", appCommit)
+		}
+		if appBuildTime != "" && appBuildTime != "unknown" {
+			fmt.Printf("Build Time: %s\n", appBuildTime)
+		}
+		return nil
+	}
+
+	// Check if there are any arguments
+	if len(args) == 0 {
+		fmt.Println("🤔 Please provide an intent, my lord!")
+		fmt.Println("Example:")
+		fmt.Println("  execute-my-will 'create a new file named 'my-file.txt' in the current directory'")
+		return nil
+	}
+
 	// Check if config file exists, if not prompt user to configure
 	cfg, err := config.Load()
 	if err != nil {
