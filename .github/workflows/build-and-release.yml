@@ -193,89 +193,104 @@ jobs:
     name: Update Homebrew Formula
     runs-on: ubuntu-latest
     needs: release
-    if: github.ref == 'refs/heads/main' && success()
+    if: github.ref == 'refs/heads/main'
+
     steps:
-    - name: Checkout Homebrew Tap
+    # Step 1: Checkout the main application repository to access the VERSION file.
+    - name: Checkout execute-my-will Repo
+      uses: actions/checkout@v4
+      with:
+        path: main-repo
+
+    # Step 2: Checkout the Homebrew tap repository to update the formula.
+    - name: Checkout Homebrew Tap Repo
       uses: actions/checkout@v4
       with:
         repository: ${{ env.HOMEBREW_TAP_REPO }}
-        token: ${{ secrets.HOMEBREW_PAT || secrets.GITHUB_TOKEN }} # Use a PAT if available, otherwise GITHUB_TOKEN
+        token: ${{ secrets.HOMEBREW_PAT }} # Use a PAT for write access
         path: homebrew-tap
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ env.GO_VERSION }}
-
+    # Step 3: Read the version from the VERSION file in the main application repo.
     - name: Read version from VERSION file
       id: version
       run: |
-        if [ -f VERSION ]; then
-          VERSION=$(cat VERSION | tr -d '\n\r')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
+        VERSION_FILE="main-repo/VERSION"
+        if [ -f "$VERSION_FILE" ]; then
+          VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version found: ${VERSION}"
         else
-          echo "VERSION file not found, using default"
-          echo "version=0.1.0" >> $GITHUB_OUTPUT
+          echo "VERSION file not found at $VERSION_FILE. Exiting."
+          exit 1
         fi
-      working-directory: ${{ github.workspace }} # Ensure this reads from the main repo's VERSION file
 
+    # Step 4: Download all build artifacts created in the 'build' job.
     - name: Download all build artifacts
       uses: actions/download-artifact@v4
       with:
         path: downloaded-artifacts
 
+    # Step 5: Update the version and SHA256 checksums in the Homebrew formula file.
     - name: Update Homebrew Formula
       run: |
         FORMULA_FILE="homebrew-tap/Formula/${{ env.APP_NAME }}.rb"
-        CURRENT_VERSION="${{ steps.version.outputs.version }}"
+        VERSION="${{ steps.version.outputs.version }}"
 
-        echo "Updating version in formula to $CURRENT_VERSION"
-        # Update the version line
-        sed -i "s/^  version \".*\"$/  version \"${CURRENT_VERSION}\"/" "$FORMULA_FILE"
+        echo "Updating formula version to ${VERSION}"
+        # Use a portable sed command to update the version line.
+        sed -i.bak "s/^  version .*/  version \"${VERSION}\"/" "$FORMULA_FILE"
 
         echo "Updating SHA256 checksums in formula..."
-        for sha_file in downloaded-artifacts/artifacts/*/*.sha256; do
-          SHA256_SUM=$(cat "$sha_file" | awk '{print $1}')
-          BINARY_NAME=$(basename "$sha_file" .sha256)
 
-          # Determine the platform and architecture from the binary name to target the correct line
-          if [[ "$BINARY_NAME" == *"-macos-arm64"* ]]; then
-            echo "Updating macOS ARM64 SHA: $SHA256_SUM"
-            sed -i "/binary_name = \"execute-my-will-macos-arm64\"/,+2s/sha256 \".*\"$/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
-          elif [[ "$BINARY_NAME" == *"-macos-x64"* ]]; then
-            echo "Updating macOS x64 SHA: $SHA256_SUM"
-            sed -i "/binary_name = \"execute-my-will-macos-x64\"/,+2s/sha256 \".*\"$/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
-          elif [[ "$BINARY_NAME" == *"-linux-arm64"* ]]; then
-            echo "Updating Linux ARM64 SHA: $SHA256_SUM"
-            sed -i "/binary_name = \"execute-my-will-linux-arm64\"/,+2s/sha256 \".*\"$/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
-          elif [[ "$BINARY_NAME" == *"-linux-x64"* ]]; then
-            echo "Updating Linux x64 SHA: $SHA256_SUM"
-            sed -i "/binary_name = \"execute-my-will-linux-x64\"/,+2s/sha256 \".*\"$/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
+        # Loop through each downloaded artifact directory to find checksums
+        for artifact_dir in downloaded-artifacts/*; do
+          if [ -d "$artifact_dir" ]; then
+            sha_file=$(find "$artifact_dir" -name "*.sha256")
+            if [ -f "$sha_file" ]; then
+              SHA256_SUM=$(cat "$sha_file" | awk '{print $1}')
+              BINARY_NAME=$(basename "$sha_file" .sha256)
+
+              echo "Processing ${BINARY_NAME} with SHA ${SHA256_SUM}"
+
+              # Update the correct sha256 in the formula based on the binary name
+              if [[ "$BINARY_NAME" == *"-macos-arm64" ]]; then
+                sed -i.bak -E "/if OS.mac\? && Hardware::CPU.arm\?/,/sha256/ s/sha256 .*/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
+              elif [[ "$BINARY_NAME" == *"-macos-x64" ]]; then
+                sed -i.bak -E "/else # macos-x64/,/sha256/ s/sha256 .*/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
+              elif [[ "$BINARY_NAME" == *"-linux-arm64" ]]; then
+                sed -i.bak -E "/if OS.linux\? && Hardware::CPU.arm\?/,/sha256/ s/sha256 .*/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
+              elif [[ "$BINARY_NAME" == *"-linux-x64" ]]; then
+                sed -i.bak -E "/else # linux-x64/,/sha256/ s/sha256 .*/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
+              fi
+            fi
           fi
         done
-      working-directory: ${{ github.workspace }}
+        rm -f ${FORMULA_FILE}.bak # Clean up backup files
 
-    - name: Create Pull Request
+    # Step 6: Commit the changes and create a Pull Request in the Homebrew tap repository.
+    - name: Create Pull Request in Homebrew Tap
       env:
-        GH_TOKEN: ${{ secrets.HOMEBREW_PAT || secrets.GITHUB_TOKEN }} # Use a PAT for permissions
+        GH_TOKEN: ${{ secrets.HOMEBREW_PAT }} # Use the PAT for creating the PR
       run: |
         cd homebrew-tap
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-        if git diff --exit-code Formula/${{ env.APP_NAME }}.rb; then
-          echo "No changes to formula. Skipping PR."
-        else
-          git checkout -b "update-${{ env.APP_NAME }}-v${{ steps.version.outputs.version }}"
-          git add Formula/${{ env.APP_NAME }}.rb
-          git commit -m "update ${{ env.APP_NAME }} to v${{ steps.version.outputs.version }}"
-          git push origin "update-${{ env.APP_NAME }}-v${{ steps.version.outputs.version }}"
-
-          gh pr create \
-            --base main \
-            --head "update-${{ env.APP_NAME }}-v${{ steps.version.outputs.version }}" \
-            --title "Update ${{ env.APP_NAME }} to v${{ steps.version.outputs.version }}" \
-            --body "Automated PR to update Homebrew formula for ${{ env.APP_NAME }} to version v${{ steps.version.outputs.version }}."
+        # Check if there are changes to commit
+        if git diff --quiet; then
+          echo "No changes to the formula. Skipping PR."
+          exit 0
         fi
-      working-directory: ${{ github.workspace }}
+
+        BRANCH_NAME="feat/update-${{ env.APP_NAME }}-to-v${{ steps.version.outputs.version }}"
+        git checkout -b "${BRANCH_NAME}"
+        git add "Formula/${{ env.APP_NAME }}.rb"
+        git commit -m "feat: Update ${{ env.APP_NAME }} to v${{ steps.version.outputs.version }}"
+        git push origin "${BRANCH_NAME}"
+
+        gh pr create \
+          --repo "${{ env.HOMEBREW_TAP_REPO }}" \
+          --base main \
+          --head "${BRANCH_NAME}" \
+          --title "feat: Update ${{ env.APP_NAME }} to v${{ steps.version.outputs.version }}" \
+          --body "Automated PR to update the Homebrew formula for \`${{ env.APP_NAME }}\` to version **v${{ steps.version.outputs.version }}**."
