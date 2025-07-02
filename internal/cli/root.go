@@ -18,15 +18,46 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	// Build info - will be set by SetBuildInfo function
+	appVersion   string
+	appCommit    string
+	appBuildTime string
+	versionFlag  bool
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "execute-my-will [intent]",
 	Short: "Your faithful digital knight, ready to execute your commands",
 	Long:  "A CLI application that interprets your natural language intent and executes the appropriate system commands with your permission, my lord.",
-	Args:  cobra.MinimumNArgs(1),
-	RunE:  executeWill,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// If the version flag is set, print the version and exit.
+		if versionFlag {
+			fmt.Printf("execute-my-will: version %s\n", appVersion)
+			if appCommit != "" && appCommit != "unknown" {
+				fmt.Printf("commit: %s\n", appCommit)
+			}
+			if appBuildTime != "" && appBuildTime != "unknown" {
+				fmt.Printf("built: %s\n", appBuildTime)
+			}
+			return nil
+		}
+		// Otherwise, require the intent argument.
+		if err := cobra.MinimumNArgs(1)(cmd, args); err != nil {
+			return err
+		}
+		return executeWill(cmd, args)
+	},
 	CompletionOptions: cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	},
+}
+
+// SetVersion sets the application version.
+func SetBuildInfo(version, commit, buildTime string) {
+	appVersion = version
+	appCommit = commit
+	appBuildTime = buildTime
 }
 
 func Execute() error {
@@ -34,6 +65,9 @@ func Execute() error {
 }
 
 func init() {
+	// Add version flag
+	rootCmd.Flags().BoolVarP(&versionFlag, "version", "v", false, "Display application version")
+
 	// Add configure subcommand
 	rootCmd.AddCommand(configureCmd)
 

@@ -112,7 +112,16 @@ jobs:
       run: |
         mkdir -p dist
         BINARY_NAME="${{ env.APP_NAME }}-${{ matrix.suffix }}${{ matrix.extension }}"
-        go build -ldflags="-s -w -X main.version=${{ steps.version.outputs.version }}" -o "dist/$BINARY_NAME" ./cmd/${{ env.APP_NAME }}/main.go
+
+        # Get Git commit hash and build time
+        COMMIT_SHA=$(git rev-parse --short HEAD)
+        BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+       
+        # Enhanced ldflags with version, commit, and build time
+        LDFLAGS="-s -w -X main.version=${{ steps.version.outputs.version }} -X main.commit=${COMMIT_SHA} -X 'main.buildTime=${BUILD_TIME}'"
+        
+        echo "Building with ldflags: ${LDFLAGS}"
+        go build -ldflags="${LDFLAGS}" -o "dist/$BINARY_NAME" ./cmd/${{ env.APP_NAME }}/main.go
         
         # Create checksum
         cd dist
