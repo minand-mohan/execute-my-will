@@ -231,7 +231,7 @@ func maskAPIKey(apiKey string) string {
 	if len(apiKey) <= 8 {
 		return strings.Repeat("*", len(apiKey))
 	}
-	return apiKey[:4] + strings.Repeat("*", len(apiKey)-8) + apiKey[len(apiKey)-4:]
+	return apiKey[:4] + strings.Repeat("*", 6)
 }
 
 func isValidModelForProvider(model, provider string) bool {
