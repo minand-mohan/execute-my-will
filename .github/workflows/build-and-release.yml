@@ -20,6 +20,7 @@ permissions:
 env:
   GO_VERSION: '1.24.4'
   APP_NAME: 'execute-my-will'
+  HOMEBREW_TAP_REPO: 'minand-mohan/homebrew-execute-my-will'
 
 jobs:
   test:
@@ -188,3 +189,93 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  update_homebrew_formula:
+    name: Update Homebrew Formula
+    runs-on: ubuntu-latest
+    needs: release
+    if: github.ref == 'refs/heads/main' && success()
+    steps:
+    - name: Checkout Homebrew Tap
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ env.HOMEBREW_TAP_REPO }}
+        token: ${{ secrets.HOMEBREW_PAT || secrets.GITHUB_TOKEN }} # Use a PAT if available, otherwise GITHUB_TOKEN
+        path: homebrew-tap
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Read version from VERSION file
+      id: version
+      run: |
+        if [ -f VERSION ]; then
+          VERSION=$(cat VERSION | tr -d '\n\r')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+        else
+          echo "VERSION file not found, using default"
+          echo "version=0.1.0" >> $GITHUB_OUTPUT
+        fi
+      working-directory: ${{ github.workspace }} # Ensure this reads from the main repo's VERSION file
+
+    - name: Download all build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: downloaded-artifacts
+
+    - name: Update Homebrew Formula
+      run: |
+        FORMULA_FILE="homebrew-tap/Formula/${{ env.APP_NAME }}.rb"
+        CURRENT_VERSION="${{ steps.version.outputs.version }}"
+
+        echo "Updating version in formula to $CURRENT_VERSION"
+        # Update the version line
+        sed -i "s/^  version \".*\"$/  version \"${CURRENT_VERSION}\"/" "$FORMULA_FILE"
+
+        echo "Updating SHA256 checksums in formula..."
+        for sha_file in downloaded-artifacts/artifacts/*/*.sha256; do
+          SHA256_SUM=$(cat "$sha_file" | awk '{print $1}')
+          BINARY_NAME=$(basename "$sha_file" .sha256)
+
+          # Determine the platform and architecture from the binary name to target the correct line
+          if [[ "$BINARY_NAME" == *"-macos-arm64"* ]]; then
+            echo "Updating macOS ARM64 SHA: $SHA256_SUM"
+            sed -i "/binary_name = \"execute-my-will-macos-arm64\"/,+2s/sha256 \".*\"$/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
+          elif [[ "$BINARY_NAME" == *"-macos-x64"* ]]; then
+            echo "Updating macOS x64 SHA: $SHA256_SUM"
+            sed -i "/binary_name = \"execute-my-will-macos-x64\"/,+2s/sha256 \".*\"$/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
+          elif [[ "$BINARY_NAME" == *"-linux-arm64"* ]]; then
+            echo "Updating Linux ARM64 SHA: $SHA256_SUM"
+            sed -i "/binary_name = \"execute-my-will-linux-arm64\"/,+2s/sha256 \".*\"$/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
+          elif [[ "$BINARY_NAME" == *"-linux-x64"* ]]; then
+            echo "Updating Linux x64 SHA: $SHA256_SUM"
+            sed -i "/binary_name = \"execute-my-will-linux-x64\"/,+2s/sha256 \".*\"$/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
+          fi
+        done
+      working-directory: ${{ github.workspace }}
+
+    - name: Create Pull Request
+      env:
+        GH_TOKEN: ${{ secrets.HOMEBREW_PAT || secrets.GITHUB_TOKEN }} # Use a PAT for permissions
+      run: |
+        cd homebrew-tap
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+        if git diff --exit-code Formula/${{ env.APP_NAME }}.rb; then
+          echo "No changes to formula. Skipping PR."
+        else
+          git checkout -b "update-${{ env.APP_NAME }}-v${{ steps.version.outputs.version }}"
+          git add Formula/${{ env.APP_NAME }}.rb
+          git commit -m "update ${{ env.APP_NAME }} to v${{ steps.version.outputs.version }}"
+          git push origin "update-${{ env.APP_NAME }}-v${{ steps.version.outputs.version }}"
+
+          gh pr create \
+            --base main \
+            --head "update-${{ env.APP_NAME }}-v${{ steps.version.outputs.version }}" \
+            --title "Update ${{ env.APP_NAME }} to v${{ steps.version.outputs.version }}" \
+            --body "Automated PR to update Homebrew formula for ${{ env.APP_NAME }} to version v${{ steps.version.outputs.version }}."
+        fi
+      working-directory: ${{ github.workspace }}
