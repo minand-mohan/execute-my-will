@@ -1,5 +1,5 @@
 // Copyright (c) 2025 Minand Nellipunath Manomohanan
-// 
+//
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
@@ -8,6 +8,7 @@ package ai
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/minand-mohan/execute-my-will/internal/config"
 	"github.com/minand-mohan/execute-my-will/internal/system"
@@ -15,7 +16,7 @@ import (
 
 type Client interface {
 	GenerateCommand(intent string, sysInfo *system.Info) (string, error)
-	ExplainCommand(command string, sysInfo *system.Info) (string, error) // New method
+	ExplainCommand(command string, sysInfo *system.Info) (string, error)
 }
 
 type clientImpl struct {
@@ -55,46 +56,46 @@ func (c *clientImpl) ExplainCommand(command string, sysInfo *system.Info) (strin
 }
 
 func buildCommandPrompt(intent string, sysInfo *system.Info) string {
+	primaryPackageManager := "the detected package manager"
+	if len(sysInfo.PackageManagers) > 0 {
+		primaryPackageManager = sysInfo.PackageManagers[0]
+	}
+
 	prompt := fmt.Sprintf(`You are a command line expert for %s systems. Generate a single, safe command based on the user's intent.
 
 SYSTEM INFORMATION:
 - OS: %s
 - Shell: %s
-- Package Manager: %s
-- Available Commands: %s
-- PATH directories: %s
-- Current Directory: %s
+- Available Package Managers: %s
 - Home Directory: %s
-
-USER ALIASES:
-%s
+- Current Directory: %s
+- Installed Packages: %s
+- Available Commands: %s
 
 USER INTENT: %s
 
 REQUIREMENTS:
 1. Output must be a SINGLE shell command with NO formatting or enclosure — no backticks, no quotes, no markdown.
 2. The command must be ONE LINE ONLY and ready to paste directly into a terminal.
-3. Do NOT return scripts or use line continuations ('\') or multiple commands on separate lines.
-4. If the task is too complex to express as one command, respond only with: FAILURE: Intent too complex for a single shell command.
-5. If the intent involves directories (e.g., copy, move, list, extract), all directory paths must be absolute and clearly specified.
-6. If any directory reference is vague (e.g., “some folder”, “the project directory”), respond only with: FAILURE: Directory reference too vague.
-7. Use known aliases if applicable.
-8. If the command is not available, prepend it with an install command using the detected package manager.
-9. Use safe and non-destructive flags when possible.
-10. Use proper syntax for the detected shell.
-11. Return only the command — no comments, no explanations, no headers.
+3. First, check the "Installed Packages" and "Available Commands" lists to see if the required application is already available.
+4. If a required application is NOT available, prepend the proper installation command. Use the primary package manager '%s' for the installation (e.g., 'brew install htop && htop').
+5. If the application IS already installed, generate the command directly without an installer.
+6. If the task is too complex, respond only with: FAILURE: Intent too complex for a single shell command.
+7. If any directory reference is vague (e.g., “some folder”), respond only with: FAILURE: Directory reference too vague.
+8. Use safe and non-destructive flags where possible.
+9. Return only the command — no comments, no explanations, no headers.
 
 COMMAND:`,
 		sysInfo.OS,
 		sysInfo.OS,
 		sysInfo.Shell,
-		sysInfo.PackageManager,
-		joinSlice(sysInfo.AvailableCommands),
-		joinSlice(sysInfo.PathDirectories),
-		sysInfo.CurrentDir,
+		joinSlice(sysInfo.PackageManagers),
 		sysInfo.HomeDir,
-		formatAliases(sysInfo.Aliases),
+		sysInfo.CurrentDir,
+		joinSlice(sysInfo.InstalledPackages),
+		joinSlice(sysInfo.AvailableCommands), // Added this line
 		intent,
+		primaryPackageManager,
 	)
 
 	return prompt
@@ -129,37 +130,10 @@ func joinSlice(slice []string) string {
 	if len(slice) == 0 {
 		return "none"
 	}
-	result := ""
-	for i, item := range slice {
-		if i > 0 {
-			result += ", "
-		}
-		result += item
-		if i >= 20 { // Limit to prevent overly long prompts
-			result += "..."
-			break
-		}
+	// Limit to prevent overly long prompts
+	const limit = 100
+	if len(slice) > limit {
+		return strings.Join(slice[:limit], ", ") + "..."
 	}
-	return result
-}
-
-func formatAliases(aliases map[string]string) string {
-	if len(aliases) == 0 {
-		return "No aliases found"
-	}
-
-	result := ""
-	count := 0
-	for alias, command := range aliases {
-		if count > 0 {
-			result += "\n"
-		}
-		result += fmt.Sprintf("%s='%s'", alias, command)
-		count++
-		if count >= 10 { // Limit aliases to prevent long prompts
-			result += "\n... (and more)"
-			break
-		}
-	}
-	return result
+	return strings.Join(slice, ", ")
 }
