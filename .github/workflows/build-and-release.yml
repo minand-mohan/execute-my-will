@@ -239,42 +239,124 @@ jobs:
       with:
         path: downloaded-artifacts
 
-    # Step 5: Update the version and SHA256 checksums in the Homebrew formula file.
+    # Step 5: Create and run Python script to update the formula
     - name: Update Homebrew Formula
       run: |
-        FORMULA_FILE="homebrew-tap/Formula/${{ env.APP_NAME }}.rb"
-        VERSION="${{ steps.version.outputs.version }}"
-
-        echo "Updating formula version to ${VERSION}"
-        # Use a portable sed command to update the version line.
-        sed -i.bak "s/^  version .*/  version \"${VERSION}\"/" "$FORMULA_FILE"
-
-        echo "Updating SHA256 checksums in formula..."
-
-        # Loop through each downloaded artifact directory to find checksums
-        for artifact_dir in downloaded-artifacts/*; do
-          if [ -d "$artifact_dir" ]; then
-            sha_file=$(find "$artifact_dir" -name "*.sha256")
-            if [ -f "$sha_file" ]; then
-              SHA256_SUM=$(cat "$sha_file" | awk '{print $1}')
-              BINARY_NAME=$(basename "$sha_file" .sha256)
-
-              echo "Processing ${BINARY_NAME} with SHA ${SHA256_SUM}"
-
-              # Update the correct sha256 in the formula based on the binary name
-              if [[ "$BINARY_NAME" == *"-macos-arm64" ]]; then
-                sed -i.bak -E "/if OS.mac\? && Hardware::CPU.arm\?/,/sha256/ s/sha256 .*/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
-              elif [[ "$BINARY_NAME" == *"-macos-x64" ]]; then
-                sed -i.bak -E "/else # macos-x64/,/sha256/ s/sha256 .*/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
-              elif [[ "$BINARY_NAME" == *"-linux-arm64" ]]; then
-                sed -i.bak -E "/if OS.linux\? && Hardware::CPU.arm\?/,/sha256/ s/sha256 .*/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
-              elif [[ "$BINARY_NAME" == *"-linux-x64" ]]; then
-                sed -i.bak -E "/else # linux-x64/,/sha256/ s/sha256 .*/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
-              fi
-            fi
-          fi
-        done
-        rm -f ${FORMULA_FILE}.bak # Clean up backup files
+        # Create the Python script inline
+        cat > update_formula.py << 'EOF'
+        #!/usr/bin/env python3
+        import sys
+        import os
+        import re
+        import glob
+        
+        def read_checksums(checksums_dir):
+            """Read all SHA256 checksums from the artifacts directory."""
+            checksums = {}
+            
+            # Find all .sha256 files in the artifacts directory
+            sha_files = glob.glob(os.path.join(checksums_dir, "**", "*.sha256"), recursive=True)
+            
+            for sha_file in sha_files:
+                with open(sha_file, 'r') as f:
+                    content = f.read().strip()
+                    # Extract SHA256 hash (first part before space)
+                    sha256_hash = content.split()[0]
+                    # Get binary name from filename (remove .sha256 extension)
+                    binary_name = os.path.basename(sha_file).replace('.sha256', '')
+                    checksums[binary_name] = sha256_hash
+                    print(f"Found checksum for {binary_name}: {sha256_hash}")
+            
+            return checksums
+        
+        def update_formula(formula_file, version, checksums):
+            """Update the Homebrew formula with new version and checksums."""
+            
+            with open(formula_file, 'r') as f:
+                content = f.read()
+            
+            print(f"Updating formula version to: {version}")
+            # Update version
+            content = re.sub(
+                r'(  version\s+")[^"]*(")',
+                f'\\1{version}\\2',
+                content
+            )
+            
+            # Update SHA256 checksums for each platform
+            platforms = [
+                ('execute-my-will-macos-arm64', 'macOS ARM64'),
+                ('execute-my-will-macos-x64', 'macOS x64'),
+                ('execute-my-will-linux-arm64', 'Linux ARM64'),
+                ('execute-my-will-linux-x64', 'Linux x64')
+            ]
+            
+            for binary_name, platform_name in platforms:
+                if binary_name in checksums:
+                    sha256 = checksums[binary_name]
+                    print(f"Updating {platform_name} SHA256 to: {sha256}")
+                    
+                    # Find and replace the sha256 line for this binary
+                    # Look for the pattern: binary_name = "execute-my-will-..." followed by sha256
+                    pattern = rf'(binary_name = "{binary_name}".*?sha256\s+")[^"]*(")'
+                    
+                    if re.search(pattern, content, re.DOTALL):
+                        content = re.sub(pattern, f'\\1{sha256}\\2', content, flags=re.DOTALL)
+                        print(f"Successfully updated {platform_name} checksum")
+                    else:
+                        print(f"Warning: Could not find pattern for {platform_name}")
+            
+            # Write the updated content back
+            with open(formula_file, 'w') as f:
+                f.write(content)
+            
+            print(f"Successfully updated {formula_file}")
+        
+        def main():
+            if len(sys.argv) != 4:
+                print("Usage: python update_formula.py <formula_file> <version> <checksums_dir>")
+                sys.exit(1)
+            
+            formula_file = sys.argv[1]
+            version = sys.argv[2]
+            checksums_dir = sys.argv[3]
+            
+            if not os.path.exists(formula_file):
+                print(f"Error: Formula file {formula_file} not found")
+                sys.exit(1)
+            
+            if not os.path.exists(checksums_dir):
+                print(f"Error: Checksums directory {checksums_dir} not found")
+                sys.exit(1)
+            
+            # Read checksums
+            checksums = read_checksums(checksums_dir)
+            
+            if not checksums:
+                print("Error: No checksums found")
+                sys.exit(1)
+            
+            # Update formula
+            update_formula(formula_file, version, checksums)
+            
+            print("Formula update completed successfully")
+        
+        if __name__ == "__main__":
+            main()
+        EOF
+        
+        # Make the script executable
+        chmod +x update_formula.py
+        
+        # Run the Python script
+        python3 update_formula.py \
+          "homebrew-tap/Formula/${{ env.APP_NAME }}.rb" \
+          "${{ steps.version.outputs.version }}" \
+          "downloaded-artifacts"
+        
+        # Show the updated formula for debugging
+        echo "Updated formula content:"
+        cat "homebrew-tap/Formula/${{ env.APP_NAME }}.rb"
 
     # Step 6: Commit the changes and create a Pull Request in the Homebrew tap repository.
     - name: Create Pull Request in Homebrew Tap
@@ -291,15 +373,39 @@ jobs:
           exit 0
         fi
 
+        echo "Changes detected in formula:"
+        git diff
+
         BRANCH_NAME="feat/update-${{ env.APP_NAME }}-to-v${{ steps.version.outputs.version }}"
+        
+        # Delete the branch if it exists (in case of re-runs)
+        git push origin --delete "${BRANCH_NAME}" 2>/dev/null || true
+        
         git checkout -b "${BRANCH_NAME}"
         git add "Formula/${{ env.APP_NAME }}.rb"
-        git commit -m "feat: Update ${{ env.APP_NAME }} to v${{ steps.version.outputs.version }}"
+        git commit -m "feat: Update ${{ env.APP_NAME }} to v${{ steps.version.outputs.version }}
+
+        - Updated version to ${{ steps.version.outputs.version }}
+        - Updated SHA256 checksums for all platforms
+        - Auto-generated by GitHub Actions"
+        
         git push origin "${BRANCH_NAME}"
 
+        # Create PR (will update existing PR if one exists)
         gh pr create \
           --repo "${{ env.HOMEBREW_TAP_REPO }}" \
           --base main \
           --head "${BRANCH_NAME}" \
           --title "feat: Update ${{ env.APP_NAME }} to v${{ steps.version.outputs.version }}" \
-          --body "Automated PR to update the Homebrew formula for \`${{ env.APP_NAME }}\` to version **v${{ steps.version.outputs.version }}**."
+          --body "Automated PR to update the Homebrew formula for \`${{ env.APP_NAME }}\` to version **v${{ steps.version.outputs.version }}**.
+
+        ## Changes
+        - 🔄 Updated version to \`${{ steps.version.outputs.version }}\`
+        - 🔐 Updated SHA256 checksums for all platforms:
+          - macOS ARM64
+          - macOS x64  
+          - Linux ARM64
+          - Linux x64
+
+        This PR was automatically generated by GitHub Actions." || \
+        echo "PR might already exist, which is fine."
