@@ -33,49 +33,62 @@ def update_formula(formula_file, version, checksums):
     """Update the Homebrew formula with new version and checksums."""
     
     with open(formula_file, 'r') as f:
-        content = f.read()
+        lines = f.readlines()
     
     print(f"Updating formula version to: {version}")
-    # Update version
-    content = re.sub(
-        r'(  version\s+")[^"]*(")',
-        f'\\1{version}\\2',
-        content
-    )
     
-    # Update SHA256 checksums for each platform
-    platforms = [
-        ('execute-my-will-macos-arm64', 'macOS ARM64'),
-        ('execute-my-will-macos-x64', 'macOS x64'),
-        ('execute-my-will-linux-arm64', 'Linux ARM64'),
-        ('execute-my-will-linux-x64', 'Linux x64')
-    ]
+    # Update version line
+    for i, line in enumerate(lines):
+        if line.strip().startswith('version '):
+            lines[i] = f'  version "{version}"\n'
+            print(f"✅ Updated version line: {lines[i].strip()}")
+            break
     
-    for binary_name, platform_name in platforms:
-        if binary_name in checksums:
-            sha256 = checksums[binary_name]
-            print(f"Updating {platform_name} SHA256 to: {sha256}")
-            
-            # Find and replace the sha256 line for this binary
-            # Look for the pattern: binary_name = "execute-my-will-..." followed by sha256
-            pattern = rf'(binary_name = "{binary_name}".*?sha256\s+")[^"]*(")'
-            
-            if re.search(pattern, content, re.DOTALL):
-                content = re.sub(pattern, f'\\1{sha256}\\2', content, flags=re.DOTALL)
-                print(f"✅ Successfully updated {platform_name} checksum")
+    # Update SHA256 checksums
+    # We'll track which platform we're currently in
+    current_platform = None
+    platform_map = {
+        'macos-arm64': 'execute-my-will-macos-arm64',
+        'macos-x64': 'execute-my-will-macos-x64', 
+        'linux-arm64': 'execute-my-will-linux-arm64',
+        'linux-x64': 'execute-my-will-linux-x64'
+    }
+    
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        
+        # Detect which platform section we're in
+        if 'if OS.mac?' in line:
+            current_platform = 'mac'
+        elif 'elif OS.linux?' in line:
+            current_platform = 'linux'
+        elif 'if Hardware::CPU.arm?' in line:
+            if current_platform == 'mac':
+                current_platform = 'macos-arm64'
+            elif current_platform == 'linux':
+                current_platform = 'linux-arm64'
+        elif line.startswith('else') and current_platform:
+            if current_platform == 'macos-arm64':
+                current_platform = 'macos-x64'
+            elif current_platform == 'linux-arm64':
+                current_platform = 'linux-x64'
+        
+        # Update SHA256 if we find one in the current platform
+        if line.startswith('sha256 ') and current_platform in platform_map:
+            binary_name = platform_map[current_platform]
+            if binary_name in checksums:
+                new_sha256 = checksums[binary_name]
+                lines[i] = f'      sha256 "{new_sha256}"\n'
+                print(f"✅ Updated {current_platform} SHA256 to: {new_sha256}")
             else:
-                print(f"⚠️  Warning: Could not find pattern for {platform_name}")
-                # Try alternative pattern matching
-                alt_pattern = rf'(url.*{binary_name}.*?sha256\s+")[^"]*(")'
-                if re.search(alt_pattern, content, re.DOTALL):
-                    content = re.sub(alt_pattern, f'\\1{sha256}\\2', content, flags=re.DOTALL)
-                    print(f"✅ Successfully updated {platform_name} checksum (alternative pattern)")
-                else:
-                    print(f"❌ Failed to update {platform_name} checksum")
+                print(f"⚠️  No checksum found for {binary_name}")
+        
+        i += 1
     
     # Write the updated content back
     with open(formula_file, 'w') as f:
-        f.write(content)
+        f.writelines(lines)
     
     print(f"✅ Successfully updated {formula_file}")
 
