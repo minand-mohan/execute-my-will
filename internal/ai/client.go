@@ -9,6 +9,7 @@ package ai
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/minand-mohan/execute-my-will/internal/config"
 	"github.com/minand-mohan/execute-my-will/internal/system"
@@ -48,12 +49,12 @@ func NewClient(cfg *config.Config) (Client, error) {
 
 func (c *clientImpl) GenerateCommand(intent string, sysInfo *system.Info) (string, error) {
 	prompt := buildCommandPrompt(intent, sysInfo)
-	return c.provider.GenerateResponse(prompt)
+	return exponentialRetryForAiRespone(c.provider.GenerateResponse, prompt, 5, 1*time.Second)
 }
 
 func (c *clientImpl) ExplainCommand(command string, sysInfo *system.Info) (string, error) {
 	prompt := buildExplanationPrompt(command, sysInfo)
-	return c.provider.GenerateResponse(prompt)
+	return exponentialRetryForAiRespone(c.provider.GenerateResponse, prompt, 3, 1*time.Second)
 }
 
 func (c *clientImpl) ListModels() ([]string, error) {
@@ -98,7 +99,7 @@ COMMAND:`,
 		sysInfo.HomeDir,
 		sysInfo.CurrentDir,
 		joinSlice(sysInfo.InstalledPackages),
-		joinSlice(sysInfo.AvailableCommands), // Added this line
+		joinSlice(sysInfo.AvailableCommands),
 		intent,
 		primaryPackageManager,
 	)
@@ -141,4 +142,26 @@ func joinSlice(slice []string) string {
 		return strings.Join(slice[:limit], ", ") + "..."
 	}
 	return strings.Join(slice, ", ")
+}
+
+func exponentialRetryForAiRespone(fn func(string) (string, error), prompt string, maxRetries int, delay time.Duration) (string, error) {
+	var resp string
+	var err error
+
+	for range maxRetries {
+		resp, err = fn(prompt)
+		if err == nil {
+			return resp, nil
+		}
+		fmt.Println("🌀" + " " + "The oracles have rejected us, sire. I will try again...")
+		time.Sleep(delay)
+		delay *= 2
+		if delay > 10*time.Second {
+			delay = 10 * time.Second
+		}
+
+	}
+
+	return "", fmt.Errorf("failed to get response after %d attempts: %v", maxRetries, err)
+
 }
