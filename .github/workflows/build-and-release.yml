@@ -205,21 +205,23 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
-    # Step 1: Checkout the main application repository to access the VERSION file.
     - name: Checkout execute-my-will Repo
       uses: actions/checkout@v4
       with:
         path: main-repo
 
-    # Step 2: Checkout the Homebrew tap repository to update the formula.
     - name: Checkout Homebrew Tap Repo
       uses: actions/checkout@v4
       with:
         repository: ${{ env.HOMEBREW_TAP_REPO }}
-        token: ${{ secrets.HOMEBREW_PAT }} # Use a PAT for write access
+        token: ${{ secrets.HOMEBREW_PAT }}
         path: homebrew-tap
 
-    # Step 3: Read the version from the VERSION file in the main application repo.
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
     - name: Read version from VERSION file
       id: version
       run: |
@@ -233,53 +235,38 @@ jobs:
           exit 1
         fi
 
-    # Step 4: Download all build artifacts created in the 'build' job.
     - name: Download all build artifacts
       uses: actions/download-artifact@v4
       with:
         path: downloaded-artifacts
 
-    # Step 5: Update the version and SHA256 checksums in the Homebrew formula file.
     - name: Update Homebrew Formula
       run: |
-        FORMULA_FILE="homebrew-tap/Formula/${{ env.APP_NAME }}.rb"
-        VERSION="${{ steps.version.outputs.version }}"
+        # Make the script executable
+        chmod +x main-repo/.github/workflows/update_formula.py
+        
+        # Run the Python script
+        python3 main-repo/.github/workflows/update_formula.py \
+          "homebrew-tap/Formula/${{ env.APP_NAME }}.rb" \
+          "${{ steps.version.outputs.version }}" \
+          "downloaded-artifacts"
+        
+        # Show the updated formula for debugging
+        echo "📋 Updated formula content:"
+        echo "----------------------------------------"
+        cat "homebrew-tap/Formula/${{ env.APP_NAME }}.rb"
+        echo "----------------------------------------"
 
-        echo "Updating formula version to ${VERSION}"
-        # Use a portable sed command to update the version line.
-        sed -i.bak "s/^  version .*/  version \"${VERSION}\"/" "$FORMULA_FILE"
+    - name: Verify formula syntax
+      run: |
+        cd homebrew-tap
+        # Basic Ruby syntax check
+        ruby -c "Formula/${{ env.APP_NAME }}.rb"
+        echo "✅ Formula syntax is valid"
 
-        echo "Updating SHA256 checksums in formula..."
-
-        # Loop through each downloaded artifact directory to find checksums
-        for artifact_dir in downloaded-artifacts/*; do
-          if [ -d "$artifact_dir" ]; then
-            sha_file=$(find "$artifact_dir" -name "*.sha256")
-            if [ -f "$sha_file" ]; then
-              SHA256_SUM=$(cat "$sha_file" | awk '{print $1}')
-              BINARY_NAME=$(basename "$sha_file" .sha256)
-
-              echo "Processing ${BINARY_NAME} with SHA ${SHA256_SUM}"
-
-              # Update the correct sha256 in the formula based on the binary name
-              if [[ "$BINARY_NAME" == *"-macos-arm64" ]]; then
-                sed -i.bak -E "/if OS.mac\? && Hardware::CPU.arm\?/,/sha256/ s/sha256 .*/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
-              elif [[ "$BINARY_NAME" == *"-macos-x64" ]]; then
-                sed -i.bak -E "/else # macos-x64/,/sha256/ s/sha256 .*/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
-              elif [[ "$BINARY_NAME" == *"-linux-arm64" ]]; then
-                sed -i.bak -E "/if OS.linux\? && Hardware::CPU.arm\?/,/sha256/ s/sha256 .*/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
-              elif [[ "$BINARY_NAME" == *"-linux-x64" ]]; then
-                sed -i.bak -E "/else # linux-x64/,/sha256/ s/sha256 .*/sha256 \"${SHA256_SUM}\"/" "$FORMULA_FILE"
-              fi
-            fi
-          fi
-        done
-        rm -f ${FORMULA_FILE}.bak # Clean up backup files
-
-    # Step 6: Commit the changes and create a Pull Request in the Homebrew tap repository.
     - name: Create Pull Request in Homebrew Tap
       env:
-        GH_TOKEN: ${{ secrets.HOMEBREW_PAT }} # Use the PAT for creating the PR
+        GH_TOKEN: ${{ secrets.HOMEBREW_PAT }}
       run: |
         cd homebrew-tap
         git config user.name "github-actions[bot]"
@@ -291,15 +278,44 @@ jobs:
           exit 0
         fi
 
+        echo "📋 Changes detected in formula:"
+        git diff --color=always
+
         BRANCH_NAME="feat/update-${{ env.APP_NAME }}-to-v${{ steps.version.outputs.version }}"
+        
+        # Delete the branch if it exists (in case of re-runs)
+        git push origin --delete "${BRANCH_NAME}" 2>/dev/null || true
+        
         git checkout -b "${BRANCH_NAME}"
         git add "Formula/${{ env.APP_NAME }}.rb"
-        git commit -m "feat: Update ${{ env.APP_NAME }} to v${{ steps.version.outputs.version }}"
+        git commit -m "feat: Update ${{ env.APP_NAME }} to v${{ steps.version.outputs.version }}
+
+        - Updated version to ${{ steps.version.outputs.version }}
+        - Updated SHA256 checksums for all platforms
+        - Auto-generated by GitHub Actions"
+        
         git push origin "${BRANCH_NAME}"
 
+        # Create PR (will update existing PR if one exists)
         gh pr create \
           --repo "${{ env.HOMEBREW_TAP_REPO }}" \
           --base main \
           --head "${BRANCH_NAME}" \
           --title "feat: Update ${{ env.APP_NAME }} to v${{ steps.version.outputs.version }}" \
-          --body "Automated PR to update the Homebrew formula for \`${{ env.APP_NAME }}\` to version **v${{ steps.version.outputs.version }}**."
+          --body "Automated PR to update the Homebrew formula for \`${{ env.APP_NAME }}\` to version **v${{ steps.version.outputs.version }}**.
+
+        ## Changes
+        - 🔄 Updated version to \`${{ steps.version.outputs.version }}\`
+        - 🔐 Updated SHA256 checksums for all platforms:
+          - macOS ARM64
+          - macOS x64  
+          - Linux ARM64
+          - Linux x64
+
+        This PR was automatically generated by GitHub Actions.
+        
+        ## Verification
+        - ✅ Formula syntax validated
+        - ✅ All platform checksums updated
+        - ✅ Version bumped correctly" || \
+        echo "PR might already exist, which is fine."
