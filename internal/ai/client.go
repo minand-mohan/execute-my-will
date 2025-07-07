@@ -17,6 +17,7 @@ import (
 type Client interface {
 	GenerateCommand(intent string, sysInfo *system.Info) (string, error)
 	ExplainCommand(command string, sysInfo *system.Info) (string, error)
+	ListModels() ([]string, error)
 }
 
 type clientImpl struct {
@@ -53,6 +54,10 @@ func (c *clientImpl) GenerateCommand(intent string, sysInfo *system.Info) (strin
 func (c *clientImpl) ExplainCommand(command string, sysInfo *system.Info) (string, error) {
 	prompt := buildExplanationPrompt(command, sysInfo)
 	return c.provider.GenerateResponse(prompt)
+}
+
+func (c *clientImpl) ListModels() ([]string, error) {
+	return c.provider.ListModels()
 }
 
 func buildCommandPrompt(intent string, sysInfo *system.Info) string {
