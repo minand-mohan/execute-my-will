@@ -195,34 +195,38 @@ func runInteractiveConfiguration(cfg *config.Config) error {
 		}
 	}
 
-	// Configure Mode (new)
+	// Configure Mode
 	fmt.Println()
 	fmt.Println("👑 Execution Mode Configuration:")
-	fmt.Println("   🤴 monarch     - For experienced rulers who know their domain well")
+	fmt.Println(" 1.  🤴 monarch     - For experienced rulers who know their domain well")
 	fmt.Println("                   Commands are shown without detailed explanations")
-	fmt.Println("   👑 royal-heir  - For heirs still learning the ways of the realm")
+	fmt.Println(" 2.  👑 royal-heir  - For heirs still learning the ways of the realm")
 	fmt.Println("                   Commands are shown with detailed explanations of each part")
 	fmt.Println()
+
+	modeMap := map[string]string{
+		"1": "monarch",
+		"2": "royal-heir",
+	}
 
 	for {
 		currentMode := cfg.Mode
 		if currentMode == "" {
 			currentMode = "not set"
 		}
-		fmt.Printf("🎯 Choose your mode [%s]: ", currentMode)
+		fmt.Printf("🎯 Choose the number of the mode you want to use [%s]: ", currentMode)
 		if input := readInput(reader); input != "" {
-			input = strings.ToLower(strings.TrimSpace(input))
-			if input == "monarch" || input == "royal-heir" {
-				cfg.Mode = input
+			if mode, ok := modeMap[input]; ok {
+				cfg.Mode = mode
 				break
 			} else {
-				fmt.Println("❌ Invalid mode. Please choose either 'monarch' or 'royal-heir'")
+				fmt.Println("❌ Invalid mode. Please enter either '1'(monarch) or '2'(royal-heir)")
 			}
 		} else if cfg.Mode != "" {
 			// Keep existing mode
 			break
 		} else {
-			fmt.Println("❌ Mode is required. Please choose either 'monarch' or 'royal-heir'")
+			fmt.Println("❌ Mode is required. Please enter either '1'(monarch) or '2'(royal-heir)")
 		}
 	}
 
