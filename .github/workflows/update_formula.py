@@ -33,62 +33,59 @@ def update_formula(formula_file, version, checksums):
     """Update the Homebrew formula with new version and checksums."""
     
     with open(formula_file, 'r') as f:
-        lines = f.readlines()
+        content = f.read()
     
     print(f"Updating formula version to: {version}")
     
     # Update version line
-    for i, line in enumerate(lines):
-        if line.strip().startswith('version '):
-            lines[i] = f'  version "{version}"\n'
-            print(f"✅ Updated version line: {lines[i].strip()}")
-            break
+    content = re.sub(
+        r'(\s+version\s+")[^"]*(")',
+        f'\\g<1>{version}\\g<2>',
+        content
+    )
+    print(f"✅ Updated version to: {version}")
     
-    # Update SHA256 checksums
-    # We'll track which platform we're currently in
-    current_platform = None
-    platform_map = {
-        'macos-arm64': 'execute-my-will-macos-arm64',
-        'macos-x64': 'execute-my-will-macos-x64', 
-        'linux-arm64': 'execute-my-will-linux-arm64',
-        'linux-x64': 'execute-my-will-linux-x64'
+    # Define the mapping of binary names to their expected checksums
+    binary_checksums = {
+        'execute-my-will-macos-arm64': checksums.get('execute-my-will-macos-arm64', ''),
+        'execute-my-will-macos-x64': checksums.get('execute-my-will-macos-x64', ''),
+        'execute-my-will-linux-arm64': checksums.get('execute-my-will-linux-arm64', ''),
+        'execute-my-will-linux-x64': checksums.get('execute-my-will-linux-x64', '')
     }
     
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-        
-        # Detect which platform section we're in
-        if 'if OS.mac?' in line:
-            current_platform = 'mac'
-        elif 'elif OS.linux?' in line:
-            current_platform = 'linux'
-        elif 'if Hardware::CPU.arm?' in line:
-            if current_platform == 'mac':
-                current_platform = 'macos-arm64'
-            elif current_platform == 'linux':
-                current_platform = 'linux-arm64'
-        elif line.startswith('else') and current_platform:
-            if current_platform == 'macos-arm64':
-                current_platform = 'macos-x64'
-            elif current_platform == 'linux-arm64':
-                current_platform = 'linux-x64'
-        
-        # Update SHA256 if we find one in the current platform
-        if line.startswith('sha256 ') and current_platform in platform_map:
-            binary_name = platform_map[current_platform]
-            if binary_name in checksums:
-                new_sha256 = checksums[binary_name]
-                lines[i] = f'      sha256 "{new_sha256}"\n'
-                print(f"✅ Updated {current_platform} SHA256 to: {new_sha256}")
-            else:
-                print(f"⚠️  No checksum found for {binary_name}")
-        
-        i += 1
+    # Update each SHA256 checksum using regex patterns that match the specific context
+    
+    # macOS ARM64 - matches the sha256 line that comes after the macos-arm64 binary assignment
+    if binary_checksums['execute-my-will-macos-arm64']:
+        pattern = r'(binary_name = "execute-my-will-macos-arm64".*?url.*?sha256\s+")[^"]*(")'
+        replacement = f'\\g<1>{binary_checksums["execute-my-will-macos-arm64"]}\\g<2>'
+        content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+        print(f"✅ Updated macOS ARM64 SHA256 to: {binary_checksums['execute-my-will-macos-arm64']}")
+    
+    # macOS x64 - matches the sha256 line that comes after the macos-x64 binary assignment  
+    if binary_checksums['execute-my-will-macos-x64']:
+        pattern = r'(binary_name = "execute-my-will-macos-x64".*?url.*?sha256\s+")[^"]*(")'
+        replacement = f'\\g<1>{binary_checksums["execute-my-will-macos-x64"]}\\g<2>'
+        content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+        print(f"✅ Updated macOS x64 SHA256 to: {binary_checksums['execute-my-will-macos-x64']}")
+    
+    # Linux ARM64 - matches the sha256 line that comes after the linux-arm64 binary assignment
+    if binary_checksums['execute-my-will-linux-arm64']:
+        pattern = r'(binary_name = "execute-my-will-linux-arm64".*?url.*?sha256\s+")[^"]*(")'
+        replacement = f'\\g<1>{binary_checksums["execute-my-will-linux-arm64"]}\\g<2>'
+        content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+        print(f"✅ Updated Linux ARM64 SHA256 to: {binary_checksums['execute-my-will-linux-arm64']}")
+    
+    # Linux x64 - matches the sha256 line that comes after the linux-x64 binary assignment
+    if binary_checksums['execute-my-will-linux-x64']:
+        pattern = r'(binary_name = "execute-my-will-linux-x64".*?url.*?sha256\s+")[^"]*(")'
+        replacement = f'\\g<1>{binary_checksums["execute-my-will-linux-x64"]}\\g<2>'
+        content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+        print(f"✅ Updated Linux x64 SHA256 to: {binary_checksums['execute-my-will-linux-x64']}")
     
     # Write the updated content back
     with open(formula_file, 'w') as f:
-        f.writelines(lines)
+        f.write(content)
     
     print(f"✅ Successfully updated {formula_file}")
 
@@ -139,6 +136,25 @@ def main():
         sys.exit(1)
     
     print(f"✅ Found {len(checksums)} checksums")
+    
+    # Verify we have all required checksums
+    required_binaries = [
+        'execute-my-will-macos-arm64',
+        'execute-my-will-macos-x64',
+        'execute-my-will-linux-arm64',
+        'execute-my-will-linux-x64'
+    ]
+    
+    missing_checksums = []
+    for binary in required_binaries:
+        if binary not in checksums:
+            missing_checksums.append(binary)
+    
+    if missing_checksums:
+        print(f"⚠️  Warning: Missing checksums for: {', '.join(missing_checksums)}")
+        print("Available checksums:")
+        for binary, checksum in checksums.items():
+            print(f"  - {binary}: {checksum}")
     
     # Update formula
     print(f"\n🔧 Updating formula...")
