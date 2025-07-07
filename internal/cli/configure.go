@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/minand-mohan/execute-my-will/internal/ai"
 	"github.com/minand-mohan/execute-my-will/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -120,10 +121,21 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 func runInteractiveConfiguration(cfg *config.Config) error {
 	reader := bufio.NewReader(os.Stdin)
 
-	// Configure AI Provider
-	fmt.Printf("🤖 AI Provider [%s]: ", cfg.AIProvider)
+	providers := map[string]string{
+		"1": "gemini",
+		"2": "openai",
+		"3": "anthropic",
+	}
+
+	// List AI  Providers
+	fmt.Println("🤖 AI Providers:")
+	fmt.Println("1. Gemini")
+	fmt.Println("2. OpenAI")
+	fmt.Println("3. Anthropic")
+	fmt.Printf("Enter the number of the provider you want to use: ")
+
 	if input := readInput(reader); input != "" {
-		cfg.AIProvider = input
+		cfg.AIProvider = providers[input]
 	}
 
 	// Update model default based on provider
@@ -144,8 +156,21 @@ func runInteractiveConfiguration(cfg *config.Config) error {
 		fmt.Println("❌ API Key is required. Please provide a valid API key.")
 	}
 
+	// Get Models for provider
+	aiClient, err := ai.NewClient(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create client")
+	}
+	models, err := aiClient.ListModels()
+	if err != nil {
+		return fmt.Errorf("failed to get models: %w", err)
+	}
+	fmt.Println("🧠 Models:")
+	for _, model := range models {
+		fmt.Printf("  - %s\n", model)
+	}
 	// Configure Model
-	fmt.Printf("🧠 Model [%s]: ", cfg.Model)
+	fmt.Printf("🧠 Select Model [%s]: ", cfg.Model)
 	if input := readInput(reader); input != "" {
 		cfg.Model = input
 	}

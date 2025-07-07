@@ -31,7 +31,7 @@ func New() *Config {
 	return &Config{
 		AIProvider:  "gemini",
 		APIKey:      "",
-		Model:       "gemini-pro",
+		Model:       "gemini-2.5-pro",
 		MaxTokens:   1000,
 		Temperature: 0.1,
 		Mode:        "", // Empty by default, requires configuration
@@ -159,4 +159,17 @@ func (e *ConfigNotFoundError) Error() string {
 func IsConfigNotFound(err error) bool {
 	_, ok := err.(*ConfigNotFoundError)
 	return ok
+}
+
+func GetModels(provider string) ([]string, error) {
+	switch provider {
+	case "gemini":
+		return []string{"gemini-pro", "gemini-2.5-pro"}, nil
+	case "openai":
+		return []string{"gpt-3.5-turbo", "gpt-4"}, nil
+	case "anthropic":
+		return []string{"claude-3-sonnet-20240229"}, nil
+	default:
+		return nil, fmt.Errorf("unsupported AI provider: %s", provider)
+	}
 }

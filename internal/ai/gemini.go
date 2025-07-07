@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/minand-mohan/execute-my-will/internal/config"
 )
@@ -48,6 +50,12 @@ type GeminiResponse struct {
 
 type GeminiCandidate struct {
 	Content GeminiContent `json:"content"`
+}
+
+type GeminiModelsResponse struct {
+	Models []struct {
+		Name string `json:"name"`
+	} `json:"models"`
 }
 
 func NewGeminiProvider(cfg *config.Config) (*GeminiProvider, error) {
@@ -122,4 +130,68 @@ func (g *GeminiProvider) GenerateResponse(prompt string) (string, error) {
 	}
 
 	return response.Candidates[0].Content.Parts[0].Text, nil
+}
+
+func (g *GeminiProvider) ListModels() ([]string, error) {
+	fmt.Println("Fetching Gemini models...")
+	const maxRetries = 5
+	initialDelay := 100 * time.Millisecond
+
+	var body []byte
+	var err error
+
+	for i := 0; i < maxRetries; i++ {
+		url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models?key=%s", g.apiKey)
+		resp, httpErr := http.Get(url)
+		if httpErr != nil {
+			err = fmt.Errorf("failed to make HTTP request to Gemini: %w", httpErr)
+			fmt.Printf("Attempt %d failed: %v. Retrying in %v...\n", i+1, err, initialDelay)
+			time.Sleep(initialDelay)
+			initialDelay *= 2 // Exponential backoff
+			continue
+		}
+		defer resp.Body.Close() // Ensure body is closed on each iteration
+
+		if resp.StatusCode != http.StatusOK {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			err = fmt.Errorf("Gemini API returned non-OK status: %d, body: %s", resp.StatusCode, string(bodyBytes))
+			fmt.Printf("Attempt %d failed: %v. Retrying in %v...\n", i+1, err, initialDelay)
+			time.Sleep(initialDelay)
+			initialDelay *= 2 // Exponential backoff
+			continue
+		}
+
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			err = fmt.Errorf("failed to read Gemini response body: %w", err)
+			fmt.Printf("Attempt %d failed: %v. Retrying in %v...\n", i+1, err, initialDelay)
+			time.Sleep(initialDelay)
+			initialDelay *= 2 // Exponential backoff
+			continue
+		}
+		break // Success, exit retry loop
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch Gemini models after %d retries: %w", maxRetries, err)
+	}
+
+	var geminiResp GeminiModelsResponse
+	if err := json.Unmarshal(body, &geminiResp); err != nil {
+		return nil, fmt.Errorf("failed to parse Gemini models response: %w", err)
+	}
+
+	var models []string
+	for _, model := range geminiResp.Models {
+		// Extract just the model name from "models/model-name"
+		parts := strings.Split(model.Name, "/")
+		if len(parts) > 1 {
+			models = append(models, parts[1])
+		} else {
+			models = append(models, model.Name) // Fallback if format is unexpected
+		}
+	}
+
+	fmt.Println("Gemini models fetched and parsed successfully.")
+	return models, nil
 }

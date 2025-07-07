@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/minand-mohan/execute-my-will/internal/config"
 )
@@ -49,6 +50,12 @@ type OpenAIError struct {
 	Message string `json:"message"`
 	Type    string `json:"type"`
 	Code    string `json:"code"`
+}
+
+type OpenAIModelsResponse struct {
+	Data []struct {
+		ID string `json:"id"` // The model ID, e.g., "gpt-4o"
+	} `json:"data"`
 }
 
 func NewOpenAIProvider(cfg *config.Config) (*OpenAIProvider, error) {
@@ -139,4 +146,72 @@ func (o *OpenAIProvider) GenerateResponse(prompt string) (string, error) {
 	}
 
 	return responseText, nil
+}
+
+func (o *OpenAIProvider) ListModels() ([]string, error) {
+	fmt.Println("Fetching OpenAI models...")
+	const maxRetries = 5
+	initialDelay := 100 * time.Millisecond
+
+	var body []byte
+	var err error
+
+	for i := 0; i < maxRetries; i++ {
+		client := &http.Client{}
+		req, httpErr := http.NewRequest("GET", "https://api.openai.com/v1/models", nil)
+		if httpErr != nil {
+			err = fmt.Errorf("failed to create OpenAI request: %w", httpErr)
+			fmt.Printf("Attempt %d failed: %v. Retrying in %v...\n", i+1, err, initialDelay)
+			time.Sleep(initialDelay)
+			initialDelay *= 2 // Exponential backoff
+			continue
+		}
+		req.Header.Add("Authorization", "Bearer "+o.apiKey) // IMPORTANT: Use the provider's API key
+
+		resp, httpErr := client.Do(req)
+		if httpErr != nil {
+			err = fmt.Errorf("failed to make HTTP request to OpenAI: %w", httpErr)
+			fmt.Printf("Attempt %d failed: %v. Retrying in %v...\n", i+1, err, initialDelay)
+			time.Sleep(initialDelay)
+			initialDelay *= 2 // Exponential backoff
+			continue
+		}
+		defer resp.Body.Close() // Ensure body is closed on each iteration
+
+		if resp.StatusCode != http.StatusOK {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			err = fmt.Errorf("OpenAI API returned non-OK status: %d, body: %s", resp.StatusCode, string(bodyBytes))
+			fmt.Printf("Attempt %d failed: %v. Retrying in %v...\n", i+1, err, initialDelay)
+			time.Sleep(initialDelay)
+			initialDelay *= 2 // Exponential backoff
+			continue
+		}
+
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			err = fmt.Errorf("failed to read OpenAI response body: %w", err)
+			fmt.Printf("Attempt %d failed: %v. Retrying in %v...\n", i+1, err, initialDelay)
+			time.Sleep(initialDelay)
+			initialDelay *= 2 // Exponential backoff
+			continue
+		}
+		break // Success, exit retry loop
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch OpenAI models after %d retries: %w", maxRetries, err)
+	}
+
+	var openAIResp OpenAIModelsResponse
+	if err := json.Unmarshal(body, &openAIResp); err != nil {
+		return nil, fmt.Errorf("failed to parse OpenAI models response: %w", err)
+	}
+
+	var models []string
+	for _, model := range openAIResp.Data {
+		models = append(models, model.ID)
+	}
+
+	fmt.Println("OpenAI models fetched and parsed successfully.")
+	return models, nil
 }

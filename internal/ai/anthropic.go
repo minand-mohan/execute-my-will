@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/minand-mohan/execute-my-will/internal/config"
 )
@@ -49,6 +50,12 @@ type AnthropicContent struct {
 type AnthropicError struct {
 	Type    string `json:"type"`
 	Message string `json:"message"`
+}
+
+type AnthropicModelsResponse struct {
+	Data []struct {
+		ID string `json:"id"` // The model ID, e.g., "claude-3-opus-20240229"
+	} `json:"data"`
 }
 
 func NewAnthropicProvider(cfg *config.Config) (*AnthropicProvider, error) {
@@ -140,4 +147,74 @@ func (a *AnthropicProvider) GenerateResponse(prompt string) (string, error) {
 	}
 
 	return responseText, nil
+}
+
+// List Models
+func (a *AnthropicProvider) ListModels() ([]string, error) {
+	fmt.Println("Fetching Claude models...")
+	const maxRetries = 5
+	initialDelay := 100 * time.Millisecond
+
+	var body []byte
+	var err error
+
+	for i := 0; i < maxRetries; i++ {
+		client := &http.Client{}
+		req, httpErr := http.NewRequest("GET", "https://api.anthropic.com/v1/models", nil) // Note: This endpoint might not exist for listing all models
+		if httpErr != nil {
+			err = fmt.Errorf("failed to create Claude request: %w", httpErr)
+			fmt.Printf("Attempt %d failed: %v. Retrying in %v...\n", i+1, err, initialDelay)
+			time.Sleep(initialDelay)
+			initialDelay *= 2 // Exponential backoff
+			continue
+		}
+		req.Header.Add("x-api-key", a.apiKey)             // IMPORTANT: Use the provider's API key
+		req.Header.Add("anthropic-version", "2023-06-01") // Specify the API version
+
+		resp, httpErr := client.Do(req)
+		if httpErr != nil {
+			err = fmt.Errorf("failed to make HTTP request to Claude: %w", httpErr)
+			fmt.Printf("Attempt %d failed: %v. Retrying in %v...\n", i+1, err, initialDelay)
+			time.Sleep(initialDelay)
+			initialDelay *= 2 // Exponential backoff
+			continue
+		}
+		defer resp.Body.Close() // Ensure body is closed on each iteration
+
+		if resp.StatusCode != http.StatusOK {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			err = fmt.Errorf("Claude API returned non-OK status: %d, body: %s", resp.StatusCode, string(bodyBytes))
+			fmt.Printf("Attempt %d failed: %v. Retrying in %v...\n", i+1, err, initialDelay)
+			time.Sleep(initialDelay)
+			initialDelay *= 2 // Exponential backoff
+			continue
+		}
+
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			err = fmt.Errorf("failed to read Claude response body: %w", err)
+			fmt.Printf("Attempt %d failed: %v. Retrying in %v...\n", i+1, err, initialDelay)
+			time.Sleep(initialDelay)
+			initialDelay *= 2 // Exponential backoff
+			continue
+		}
+		break // Success, exit retry loop
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch Claude models after %d retries: %w", maxRetries, err)
+	}
+
+	var claudeResp AnthropicModelsResponse
+	if err := json.Unmarshal(body, &claudeResp); err != nil {
+		return nil, fmt.Errorf("failed to parse Claude models response: %w", err)
+	}
+
+	var models []string
+	for _, model := range claudeResp.Data {
+		models = append(models, model.ID)
+	}
+
+	fmt.Println("Claude models fetched and parsed successfully.")
+	return models, nil
 }

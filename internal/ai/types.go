@@ -8,4 +8,5 @@ package ai
 
 type AIProvider interface {
 	GenerateResponse(prompt string) (string, error)
+	ListModels() ([]string, error)
 }
