@@ -8,6 +8,7 @@ package ai
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 )
 
 type Client interface {
-	GenerateCommand(intent string, sysInfo *system.Info) (string, error)
+	GenerateResponse(intent string, sysInfo *system.Info) (*AIResponse, error)
 	ExplainCommand(command string, sysInfo *system.Info) (string, error)
 	ListModels() ([]string, error)
 }
@@ -47,14 +48,18 @@ func NewClient(cfg *config.Config) (Client, error) {
 	return &clientImpl{provider: provider}, nil
 }
 
-func (c *clientImpl) GenerateCommand(intent string, sysInfo *system.Info) (string, error) {
+func (c *clientImpl) GenerateResponse(intent string, sysInfo *system.Info) (*AIResponse, error) {
 	prompt := buildCommandPrompt(intent, sysInfo)
-	return exponentialRetryForAiRespone(c.provider.GenerateResponse, prompt, 5, 1*time.Second)
+	response, err := exponentialRetryForAiResponse(c.provider.GenerateResponse, prompt, 5, 1*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	return parseAIResponse(response), nil
 }
 
 func (c *clientImpl) ExplainCommand(command string, sysInfo *system.Info) (string, error) {
 	prompt := buildExplanationPrompt(command, sysInfo)
-	return exponentialRetryForAiRespone(c.provider.GenerateResponse, prompt, 3, 1*time.Second)
+	return exponentialRetryForAiResponse(c.provider.GenerateResponse, prompt, 3, 1*time.Second)
 }
 
 func (c *clientImpl) ListModels() ([]string, error) {
@@ -67,7 +72,10 @@ func buildCommandPrompt(intent string, sysInfo *system.Info) string {
 		primaryPackageManager = sysInfo.PackageManagers[0]
 	}
 
-	prompt := fmt.Sprintf(`You are a command line expert for %s systems. Generate a single, safe command based on the user's intent.
+	// Determine script format based on shell
+	scriptFormat, commentPrefix := getScriptFormat(sysInfo.Shell)
+
+	prompt := fmt.Sprintf(`You are a command line expert for %s systems. Generate a single, safe command or a safe script based on the user's intent.
 
 SYSTEM INFORMATION:
 - OS: %s
@@ -80,31 +88,69 @@ SYSTEM INFORMATION:
 
 USER INTENT: %s
 
-REQUIREMENTS:
-1. Output must be a SINGLE shell command with NO formatting or enclosure — no backticks, no quotes, no markdown.
-2. The command must be ONE LINE ONLY and ready to paste directly into a terminal.
-3. First, check the "Installed Packages" and "Available Commands" lists to see if the required application is already available.
-4. If a required application is NOT available, prepend the proper installation command. Use the primary package manager '%s' for the installation (e.g., 'brew install htop && htop').
-5. If the application IS already installed, generate the command directly without an installer.
-6. If the task is too complex, respond only with: FAILURE: Intent too complex for a single shell command.
-7. If any directory reference is vague (e.g., “some folder”), respond only with: FAILURE: Directory reference too vague.
-8. Use safe and non-destructive flags where possible.
-9. Return only the command — no comments, no explanations, no headers.
+RESPONSE FORMAT:
+You must respond with exactly ONE of these three formats:
 
-COMMAND:`,
-		sysInfo.OS,
-		sysInfo.OS,
-		sysInfo.Shell,
-		joinSlice(sysInfo.PackageManagers),
-		sysInfo.HomeDir,
-		sysInfo.CurrentDir,
-		joinSlice(sysInfo.InstalledPackages),
-		joinSlice(sysInfo.AvailableCommands),
-		intent,
-		primaryPackageManager,
+1. For simple single commands:
+COMMAND: [single shell command with no formatting]
+
+2. For complex multi-step tasks:
+SCRIPT:
+` + "```" + `%s
+%s Brief description of what this command does
+command1
+%s Brief description of what this command does  
+command2
+` + "```" + `
+
+3. For impossible/unsafe tasks:
+FAILURE: [Brief reason why task cannot be completed]
+
+REQUIREMENTS:
+1. All commands and scripts must be SAFE and non-destructive.
+2. First, check the "Installed Packages" and "Available Commands" lists to see if required applications are available.
+3. If a required application is NOT available, include installation using the primary package manager '%s' (e.g., 'brew install htop', 'apt install htop', 'winget install htop').
+4. For SCRIPT responses: Each command must have a brief one-line comment above it explaining what it does.
+5. For SCRIPT responses: Use %s syntax for comments and ensure commands work in %s shell.
+6. For SCRIPT responses: Use proper %s syntax and ensure commands can run in sequence in the same shell session.
+7. Use safe and non-destructive flags where possible (e.g., 'cp -i' for interactive copy, 'rm -i' for interactive removal).
+8. If any directory reference is vague (e.g., "some folder"), respond with FAILURE: Directory reference too vague.
+9. Choose SCRIPT over COMMAND when the task requires multiple steps, environment setup, or variable usage.
+
+RESPONSE:`,
+		sysInfo.OS,                              // systems
+		sysInfo.OS,                              // OS 
+		sysInfo.Shell,                           // Shell
+		joinSlice(sysInfo.PackageManagers),      // Available Package Managers
+		sysInfo.HomeDir,                         // Home Directory
+		sysInfo.CurrentDir,                      // Current Directory
+		joinSlice(sysInfo.InstalledPackages),    // Installed Packages
+		joinSlice(sysInfo.AvailableCommands),    // Available Commands
+		intent,                                  // USER INTENT
+		scriptFormat,                            // script format (```bash)
+		commentPrefix,                           // comment prefix (first comment)
+		commentPrefix,                           // comment prefix (second comment)
+		primaryPackageManager,                   // primary package manager
+		commentPrefix,                           // comment syntax
+		sysInfo.Shell,                           // shell name
+		scriptFormat,                            // script format (proper bash syntax)
 	)
 
 	return prompt
+}
+
+func getScriptFormat(shell string) (scriptFormat, commentPrefix string) {
+	switch shell {
+	case "powershell", "pwsh":
+		return "powershell", "#"
+	case "cmd":
+		return "cmd", "REM"
+	case "bash", "zsh", "fish", "sh":
+		return "bash", "#"
+	default:
+		// Default to bash for unknown shells
+		return "bash", "#"
+	}
 }
 
 func buildExplanationPrompt(command string, sysInfo *system.Info) string {
@@ -144,11 +190,52 @@ func joinSlice(slice []string) string {
 	return strings.Join(slice, ", ")
 }
 
-func exponentialRetryForAiRespone(fn func(string) (string, error), prompt string, maxRetries int, delay time.Duration) (string, error) {
+func parseAIResponse(response string) *AIResponse {
+	response = strings.TrimSpace(response)
+	
+	if strings.HasPrefix(response, "COMMAND:") {
+		content := strings.TrimSpace(strings.TrimPrefix(response, "COMMAND:"))
+		return &AIResponse{
+			Type:    ResponseTypeCommand,
+			Content: content,
+		}
+	}
+	
+	if strings.HasPrefix(response, "SCRIPT:") {
+		scriptContent := strings.TrimSpace(strings.TrimPrefix(response, "SCRIPT:"))
+		
+		// Extract content from markdown code block - support multiple script types
+		re := regexp.MustCompile("(?s)```(?:bash|sh|cmd|bat|powershell|ps1)?\n(.*?)```")
+		matches := re.FindStringSubmatch(scriptContent)
+		if len(matches) > 1 {
+			scriptContent = strings.TrimSpace(matches[1])
+		}
+		return &AIResponse{
+			Type:    ResponseTypeScript,
+			Content: scriptContent,
+		}
+	}
+	
+	if strings.HasPrefix(response, "FAILURE:") {
+		errorMsg := strings.TrimSpace(strings.TrimPrefix(response, "FAILURE:"))
+		return &AIResponse{
+			Type:  ResponseTypeFailure,
+			Error: errorMsg,
+		}
+	}
+	
+	// Default fallback - treat as command for backward compatibility
+	return &AIResponse{
+		Type:    ResponseTypeCommand,
+		Content: response,
+	}
+}
+
+func exponentialRetryForAiResponse(fn func(string) (string, error), prompt string, maxRetries int, delay time.Duration) (string, error) {
 	var resp string
 	var err error
 
-	for range maxRetries {
+	for i := 0; i < maxRetries; i++ {
 		resp, err = fn(prompt)
 		if err == nil {
 			return resp, nil
