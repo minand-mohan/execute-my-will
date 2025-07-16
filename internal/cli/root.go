@@ -149,7 +149,7 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	case ai.ResponseTypeFailure:
 		fmt.Printf("\n❌ Alas, I cannot fulfill this quest: %s\n", response.Error)
 		return nil
-		
+
 	case ai.ResponseTypeCommand:
 		// Display the command for confirmation
 		fmt.Printf("\n⚔️  I propose to execute this command on your behalf:\n")
@@ -181,20 +181,20 @@ func executeWill(cmd *cobra.Command, args []string) error {
 			}
 			return fmt.Errorf("environment validation failed: %w", err)
 		}
-		
+
 	case ai.ResponseTypeScript:
 		// Display the script for confirmation
 		fmt.Printf("\n📜 I propose to execute this script on your behalf:\n")
 		fmt.Println("================================================")
-		
+
 		// Display script with or without comments based on mode
 		showComments := cfg.Mode == "royal-heir"
 		displayScript(response.Content, showComments)
-		
+
 		fmt.Println("================================================")
 		taskContent = response.Content
 		isScript = true
-		
+
 		if cfg.Mode == "royal-heir" {
 			fmt.Println("📚 This script will execute each command in sequence, maintaining context between steps.")
 		}
@@ -225,14 +225,14 @@ func executeWill(cmd *cobra.Command, args []string) error {
 
 	executor := system.NewExecutor()
 	var execErr error
-	
+
 	if isScript {
 		showComments := cfg.Mode == "royal-heir"
 		execErr = executor.ExecuteScript(taskContent, sysInfo.Shell, showComments)
 	} else {
 		execErr = executor.Execute(taskContent, sysInfo.Shell)
 	}
-	
+
 	if execErr != nil {
 		fmt.Printf("\n⚔️  Alas! The quest has encountered difficulties, my lord: %v\n", execErr)
 
@@ -259,16 +259,16 @@ func executeWill(cmd *cobra.Command, args []string) error {
 // displayScript shows the script content with or without comments
 func displayScript(scriptContent string, showComments bool) {
 	lines := strings.Split(scriptContent, "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		// Check if line is a comment
 		isComment := strings.HasPrefix(line, "#") || strings.HasPrefix(line, "REM")
-		
+
 		if isComment && showComments {
 			// Display comment in a different style
 			fmt.Printf("   💬 %s\n", strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(line, "#"), "REM")))

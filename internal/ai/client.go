@@ -96,12 +96,12 @@ COMMAND: [single shell command with no formatting]
 
 2. For complex multi-step tasks:
 SCRIPT:
-` + "```" + `%s
+`+"```"+`%s
 %s Brief description of what this command does
 command1
 %s Brief description of what this command does  
 command2
-` + "```" + `
+`+"```"+`
 
 3. For impossible/unsafe tasks:
 FAILURE: [Brief reason why task cannot be completed]
@@ -118,22 +118,22 @@ REQUIREMENTS:
 9. Choose SCRIPT over COMMAND when the task requires multiple steps, environment setup, or variable usage.
 
 RESPONSE:`,
-		sysInfo.OS,                              // systems
-		sysInfo.OS,                              // OS 
-		sysInfo.Shell,                           // Shell
-		joinSlice(sysInfo.PackageManagers),      // Available Package Managers
-		sysInfo.HomeDir,                         // Home Directory
-		sysInfo.CurrentDir,                      // Current Directory
-		joinSlice(sysInfo.InstalledPackages),    // Installed Packages
-		joinSlice(sysInfo.AvailableCommands),    // Available Commands
-		intent,                                  // USER INTENT
-		scriptFormat,                            // script format (```bash)
-		commentPrefix,                           // comment prefix (first comment)
-		commentPrefix,                           // comment prefix (second comment)
-		primaryPackageManager,                   // primary package manager
-		commentPrefix,                           // comment syntax
-		sysInfo.Shell,                           // shell name
-		scriptFormat,                            // script format (proper bash syntax)
+		sysInfo.OS,                           // systems
+		sysInfo.OS,                           // OS
+		sysInfo.Shell,                        // Shell
+		joinSlice(sysInfo.PackageManagers),   // Available Package Managers
+		sysInfo.HomeDir,                      // Home Directory
+		sysInfo.CurrentDir,                   // Current Directory
+		joinSlice(sysInfo.InstalledPackages), // Installed Packages
+		joinSlice(sysInfo.AvailableCommands), // Available Commands
+		intent,                               // USER INTENT
+		scriptFormat,                         // script format (```bash)
+		commentPrefix,                        // comment prefix (first comment)
+		commentPrefix,                        // comment prefix (second comment)
+		primaryPackageManager,                // primary package manager
+		commentPrefix,                        // comment syntax
+		sysInfo.Shell,                        // shell name
+		scriptFormat,                         // script format (proper bash syntax)
 	)
 
 	return prompt
@@ -192,7 +192,7 @@ func joinSlice(slice []string) string {
 
 func parseAIResponse(response string) *AIResponse {
 	response = strings.TrimSpace(response)
-	
+
 	if strings.HasPrefix(response, "COMMAND:") {
 		content := strings.TrimSpace(strings.TrimPrefix(response, "COMMAND:"))
 		return &AIResponse{
@@ -200,10 +200,10 @@ func parseAIResponse(response string) *AIResponse {
 			Content: content,
 		}
 	}
-	
+
 	if strings.HasPrefix(response, "SCRIPT:") {
 		scriptContent := strings.TrimSpace(strings.TrimPrefix(response, "SCRIPT:"))
-		
+
 		// Extract content from markdown code block - support multiple script types
 		re := regexp.MustCompile("(?s)```(?:bash|sh|cmd|bat|powershell|ps1)?\n(.*?)```")
 		matches := re.FindStringSubmatch(scriptContent)
@@ -215,7 +215,7 @@ func parseAIResponse(response string) *AIResponse {
 			Content: scriptContent,
 		}
 	}
-	
+
 	if strings.HasPrefix(response, "FAILURE:") {
 		errorMsg := strings.TrimSpace(strings.TrimPrefix(response, "FAILURE:"))
 		return &AIResponse{
@@ -223,7 +223,7 @@ func parseAIResponse(response string) *AIResponse {
 			Error: errorMsg,
 		}
 	}
-	
+
 	// Default fallback - treat as command for backward compatibility
 	return &AIResponse{
 		Type:    ResponseTypeCommand,

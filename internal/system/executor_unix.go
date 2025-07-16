@@ -62,49 +62,49 @@ func (e *Executor) ExecuteScript(scriptContent string, shell string, showComment
 	if err != nil {
 		return fmt.Errorf("failed to get config directory: %v", err)
 	}
-	
+
 	tmpDir := filepath.Join(configDir, "execute-my-will", "tmp")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create tmp directory: %v", err)
 	}
-	
+
 	// Generate script filename with timestamp
 	timestamp := time.Now().Format("20060102_150405")
 	scriptPath := filepath.Join(tmpDir, fmt.Sprintf("script_%s.sh", timestamp))
-	
+
 	// Create executable script
 	scriptWithExecutor := e.createExecutableScript(scriptContent, showComments)
-	
+
 	if err := ioutil.WriteFile(scriptPath, []byte(scriptWithExecutor), 0755); err != nil {
 		return fmt.Errorf("failed to write script file: %v", err)
 	}
-	
+
 	// Clean up script file after execution
 	defer func() {
 		os.Remove(scriptPath)
 		// Clean up old script files (older than 1 hour)
 		e.cleanupOldScripts(tmpDir)
 	}()
-	
+
 	fmt.Printf("🗡️  Executing thy script, my lord\n")
 	fmt.Println("═══════════════════════════════════════════════════════")
-	
+
 	// Execute the script with the specified shell
 	cmd := exec.Command(shell, scriptPath)
-	
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	
+
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Foreground: true,
 		Pgid:       0,
 	}
-	
+
 	err = cmd.Run()
-	
+
 	fmt.Println("═══════════════════════════════════════════════════════")
-	
+
 	return err
 }
 
@@ -112,17 +112,17 @@ func (e *Executor) ExecuteScript(scriptContent string, shell string, showComment
 func (e *Executor) createExecutableScript(scriptContent string, showComments bool) string {
 	lines := strings.Split(scriptContent, "\n")
 	var result strings.Builder
-	
+
 	// Bash script header with error handling
 	result.WriteString("#!/bin/bash\n")
 	result.WriteString("set -e\n\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		if strings.HasPrefix(line, "#") && showComments {
 			// Display comment
 			comment := strings.TrimPrefix(line, "#")
@@ -132,7 +132,7 @@ func (e *Executor) createExecutableScript(scriptContent string, showComments boo
 			result.WriteString(fmt.Sprintf("%s\n", line))
 		}
 	}
-	
+
 	return result.String()
 }
 
@@ -142,7 +142,7 @@ func (e *Executor) cleanupOldScripts(tmpDir string) {
 	if err != nil {
 		return
 	}
-	
+
 	cutoff := time.Now().Add(-1 * time.Hour)
 	for _, file := range files {
 		if strings.HasPrefix(file.Name(), "script_") && file.ModTime().Before(cutoff) {

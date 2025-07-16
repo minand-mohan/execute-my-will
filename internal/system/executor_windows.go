@@ -56,17 +56,17 @@ func (e *Executor) ExecuteScript(scriptContent string, shell string, showComment
 	if err != nil {
 		return fmt.Errorf("failed to get config directory: %v", err)
 	}
-	
+
 	tmpDir := filepath.Join(configDir, "execute-my-will", "tmp")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create tmp directory: %v", err)
 	}
-	
+
 	// Generate script filename with timestamp and appropriate extension
 	timestamp := time.Now().Format("20060102_150405")
 	var scriptPath string
 	var scriptWithExecutor string
-	
+
 	if shell == "powershell" || shell == "pwsh" {
 		scriptPath = filepath.Join(tmpDir, fmt.Sprintf("script_%s.ps1", timestamp))
 		scriptWithExecutor = e.createPowerShellScript(scriptContent, showComments)
@@ -75,21 +75,21 @@ func (e *Executor) ExecuteScript(scriptContent string, shell string, showComment
 		scriptPath = filepath.Join(tmpDir, fmt.Sprintf("script_%s.bat", timestamp))
 		scriptWithExecutor = e.createCmdScript(scriptContent, showComments)
 	}
-	
+
 	if err := ioutil.WriteFile(scriptPath, []byte(scriptWithExecutor), 0755); err != nil {
 		return fmt.Errorf("failed to write script file: %v", err)
 	}
-	
+
 	// Clean up script file after execution
 	defer func() {
 		os.Remove(scriptPath)
 		// Clean up old script files (older than 1 hour)
 		e.cleanupOldScripts(tmpDir)
 	}()
-	
+
 	fmt.Printf("🗡️  Executing thy script, my lord\n")
 	fmt.Println("═══════════════════════════════════════════════════════")
-	
+
 	// Execute the script
 	var cmd *exec.Cmd
 	if shell == "powershell" || shell == "pwsh" {
@@ -97,20 +97,20 @@ func (e *Executor) ExecuteScript(scriptContent string, shell string, showComment
 	} else {
 		cmd = exec.Command("cmd", "/C", scriptPath)
 	}
-	
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	
+
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP,
 		HideWindow:    false,
 	}
-	
+
 	err = cmd.Run()
-	
+
 	fmt.Println("═══════════════════════════════════════════════════════")
-	
+
 	return err
 }
 
@@ -118,19 +118,19 @@ func (e *Executor) ExecuteScript(scriptContent string, shell string, showComment
 func (e *Executor) createPowerShellScript(scriptContent string, showComments bool) string {
 	lines := strings.Split(scriptContent, "\n")
 	var result strings.Builder
-	
+
 	// PowerShell script header with error handling
 	result.WriteString("$ErrorActionPreference = 'Stop'\n")
 	result.WriteString("$LineNumber = 0\n\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		result.WriteString("$LineNumber++\n")
-		
+
 		if strings.HasPrefix(line, "#") && showComments {
 			// Display comment
 			comment := strings.TrimPrefix(line, "#")
@@ -145,7 +145,7 @@ func (e *Executor) createPowerShellScript(scriptContent string, showComments boo
 			result.WriteString("}\n")
 		}
 	}
-	
+
 	return result.String()
 }
 
@@ -153,20 +153,20 @@ func (e *Executor) createPowerShellScript(scriptContent string, showComments boo
 func (e *Executor) createCmdScript(scriptContent string, showComments bool) string {
 	lines := strings.Split(scriptContent, "\n")
 	var result strings.Builder
-	
+
 	// CMD script header with error handling
 	result.WriteString("@echo off\n")
 	result.WriteString("setlocal enabledelayedexpansion\n")
 	result.WriteString("set LINE=0\n\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
-		
+
 		result.WriteString("set /a LINE+=1\n")
-		
+
 		if strings.HasPrefix(line, "REM") && showComments {
 			// Display comment
 			comment := strings.TrimPrefix(line, "REM")
@@ -180,7 +180,7 @@ func (e *Executor) createCmdScript(scriptContent string, showComments bool) stri
 			result.WriteString(")\n")
 		}
 	}
-	
+
 	return result.String()
 }
 
@@ -190,7 +190,7 @@ func (e *Executor) cleanupOldScripts(tmpDir string) {
 	if err != nil {
 		return
 	}
-	
+
 	cutoff := time.Now().Add(-1 * time.Hour)
 	for _, file := range files {
 		if strings.HasPrefix(file.Name(), "script_") && file.ModTime().Before(cutoff) {
