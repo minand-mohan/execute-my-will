@@ -10,3 +10,17 @@ type AIProvider interface {
 	GenerateResponse(prompt string) (string, error)
 	ListModels() ([]string, error)
 }
+
+type ResponseType int
+
+const (
+	ResponseTypeCommand ResponseType = iota
+	ResponseTypeScript
+	ResponseTypeFailure
+)
+
+type AIResponse struct {
+	Type    ResponseType
+	Content string
+	Error   string
+}

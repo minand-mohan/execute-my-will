@@ -134,40 +134,70 @@ func executeWill(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to summon the oracle, my lord: %w", err)
 	}
 
-	// Generate command
+	// Generate response (command or script)
 	fmt.Println("🧙 Consulting with the ancient oracles...")
-	command, err := aiClient.GenerateCommand(intent, sysInfo)
+	response, err := aiClient.GenerateResponse(intent, sysInfo)
 	if err != nil {
 		return fmt.Errorf("the oracles have failed us, sire: %w", err)
 	}
 
-	// Display the command for confirmation
-	fmt.Printf("\n⚔️  I propose to execute this command on your behalf:\n")
-	fmt.Printf("   %s\n", command)
+	var taskContent string
+	var isScript bool
 
-	// If in royal-heir mode, provide detailed explanation
-	if cfg.Mode == "royal-heir" {
-		fmt.Println("================================================")
-		fmt.Println("")
-		fmt.Println("📚 As you are still learning the ways of the realm, allow me to explain each part:")
-		explanation, err := aiClient.ExplainCommand(command, sysInfo)
-		if err != nil {
-			fmt.Printf("⚠️  I encountered difficulty explaining the command, but it should still work, my lord: %v\n\n", err)
-		} else {
-			fmt.Printf("%s\n", explanation)
-		}
-		fmt.Println("================================================")
-	}
+	// Handle different response types
+	switch response.Type {
+	case ai.ResponseTypeFailure:
+		fmt.Printf("\n❌ Alas, I cannot fulfill this quest: %s\n", response.Error)
+		return nil
 
-	// Validate if the command affects the environment
-	envValidator := system.NewEnvironmentValidator(sysInfo)
-	if err := envValidator.ValidateEnvironmentCommand(command); err != nil {
-		if envErr, ok := err.(*system.EnvironmentCommandError); ok {
-			fmt.Println()
-			fmt.Println(envErr.GetKnightlyMessage())
-			return nil
+	case ai.ResponseTypeCommand:
+		// Display the command for confirmation
+		fmt.Printf("\n⚔️  I propose to execute this command on your behalf:\n")
+		fmt.Printf("   %s\n", response.Content)
+		taskContent = response.Content
+		isScript = false
+
+		// If in royal-heir mode, provide detailed explanation for commands only
+		if cfg.Mode == "royal-heir" {
+			fmt.Println("================================================")
+			fmt.Println("")
+			fmt.Println("📚 As you are still learning the ways of the realm, allow me to explain:")
+			explanation, err := aiClient.ExplainCommand(response.Content, sysInfo)
+			if err != nil {
+				fmt.Printf("⚠️  I encountered difficulty explaining the command, but it should still work, my lord: %v\n\n", err)
+			} else {
+				fmt.Printf("%s\n", explanation)
+			}
+			fmt.Println("================================================")
 		}
-		return fmt.Errorf("environment validation failed: %w", err)
+
+		// Validate if the command affects the environment
+		envValidator := system.NewEnvironmentValidator(sysInfo)
+		if err := envValidator.ValidateEnvironmentCommand(response.Content); err != nil {
+			if envErr, ok := err.(*system.EnvironmentCommandError); ok {
+				fmt.Println()
+				fmt.Println(envErr.GetKnightlyMessage())
+				return nil
+			}
+			return fmt.Errorf("environment validation failed: %w", err)
+		}
+
+	case ai.ResponseTypeScript:
+		// Display the script for confirmation
+		fmt.Printf("\n📜 I propose to execute this script on your behalf:\n")
+		fmt.Println("================================================")
+
+		// Display script with or without comments based on mode
+		showComments := cfg.Mode == "royal-heir"
+		displayScript(response.Content, showComments)
+
+		fmt.Println("================================================")
+		taskContent = response.Content
+		isScript = true
+
+		if cfg.Mode == "royal-heir" {
+			fmt.Println("📚 This script will execute each command in sequence, maintaining context between steps.")
+		}
 	}
 
 	// Ask for confirmation
@@ -178,37 +208,73 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
+	userResponse, err := reader.ReadString('\n')
 	if err != nil {
 		return fmt.Errorf("failed to read your royal decree: %w", err)
 	}
 
-	response = strings.TrimSpace(strings.ToLower(response))
-	if response != "y" && response != "yes" {
+	userResponse = strings.TrimSpace(strings.ToLower(userResponse))
+	if userResponse != "y" && userResponse != "yes" {
 		fmt.Println("🙏 I misunderstood your will, sire. Please try again with clearer instructions.")
 		return nil
 	}
 
-	// Execute the command with enhanced interactive support
-	fmt.Println("⚡ Executing your command with honor...")
-	fmt.Println("") // Add some space before command execution
+	// Execute the task with enhanced interactive support
+	fmt.Println("⚡ Executing your quest with honor...")
+	fmt.Println("") // Add some space before execution
 
 	executor := system.NewExecutor()
-	if err := executor.Execute(command, sysInfo.Shell); err != nil {
-		fmt.Printf("\n⚔️  Alas! The quest has encountered difficulties, my lord: %v\n", err)
+	var execErr error
+
+	if isScript {
+		showComments := cfg.Mode == "royal-heir"
+		execErr = executor.ExecuteScript(taskContent, sysInfo.Shell, showComments)
+	} else {
+		execErr = executor.Execute(taskContent, sysInfo.Shell)
+	}
+
+	if execErr != nil {
+		fmt.Printf("\n⚔️  Alas! The quest has encountered difficulties, my lord: %v\n", execErr)
 
 		// Check if it's a common issue and provide helpful suggestions
-		if strings.Contains(err.Error(), "permission denied") {
+		if strings.Contains(execErr.Error(), "permission denied") {
 			fmt.Println("💡 This might require elevated privileges. Consider adding 'sudo' to your request if appropriate.")
-		} else if strings.Contains(err.Error(), "command not found") {
+		} else if strings.Contains(execErr.Error(), "command not found") {
 			fmt.Println("💡 The command appears to be missing. The system may need to install required packages first.")
-		} else if strings.Contains(err.Error(), "no such file or directory") {
+		} else if strings.Contains(execErr.Error(), "no such file or directory") {
 			fmt.Println("💡 Please ensure all file paths in your request are correct and accessible.")
 		}
 
 		return nil // Don't return the error to avoid double error messages
 	}
 
-	fmt.Printf("\n🏆 Your command has been executed successfully, sire!\n")
+	if isScript {
+		fmt.Printf("\n🏆 Your script has been executed successfully, sire!\n")
+	} else {
+		fmt.Printf("\n🏆 Your command has been executed successfully, sire!\n")
+	}
 	return nil
+}
+
+// displayScript shows the script content with or without comments
+func displayScript(scriptContent string, showComments bool) {
+	lines := strings.Split(scriptContent, "\n")
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Check if line is a comment
+		isComment := strings.HasPrefix(line, "#") || strings.HasPrefix(line, "REM")
+
+		if isComment && showComments {
+			// Display comment in a different style
+			fmt.Printf("   💬 %s\n", strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(line, "#"), "REM")))
+		} else if !isComment {
+			// Display command
+			fmt.Printf("   %s\n", line)
+		}
+	}
 }
