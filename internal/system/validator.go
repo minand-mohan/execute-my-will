@@ -17,7 +17,7 @@ type Validator struct {
 	sysInfo *Info
 }
 
-func NewValidator(sysInfo *Info) *Validator {
+func NewValidator(sysInfo *Info) IntentValidator {
 	return &Validator{sysInfo: sysInfo}
 }
 

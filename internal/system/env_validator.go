@@ -16,7 +16,7 @@ type EnvironmentValidator struct {
 	sysInfo *Info
 }
 
-func NewEnvironmentValidator(sysInfo *Info) *EnvironmentValidator {
+func NewEnvironmentValidator(sysInfo *Info) EnvironmentValidatorInterface {
 	return &EnvironmentValidator{sysInfo: sysInfo}
 }
 

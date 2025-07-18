@@ -22,7 +22,7 @@ import (
 type Executor struct{}
 
 // NewExecutor creates a new executor instance
-func NewExecutor() *Executor {
+func NewExecutor() CommandExecutor {
 	return &Executor{}
 }
 
