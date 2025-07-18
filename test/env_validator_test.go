@@ -1,19 +1,21 @@
-// File: internal/system/env_validator_test.go
-package system
+// File: test/env_validator_test.go
+package test
 
 import (
 	"strings"
 	"testing"
+
+	"github.com/minand-mohan/execute-my-will/internal/system"
 )
 
 func TestEnvironmentValidator(t *testing.T) {
 	// Mock system info
-	sysInfo := &Info{
+	sysInfo := &system.Info{
 		OS:    "linux",
 		Shell: "bash",
 	}
 
-	validator := NewEnvironmentValidator(sysInfo)
+	validator := system.NewEnvironmentValidator(sysInfo)
 
 	testCases := []struct {
 		name           string
@@ -266,7 +268,7 @@ func TestEnvironmentValidator(t *testing.T) {
 					return
 				}
 
-				envErr, ok := err.(*EnvironmentCommandError)
+				envErr, ok := err.(*system.EnvironmentCommandError)
 				if !ok {
 					t.Errorf("Expected EnvironmentCommandError, got %T", err)
 					return
@@ -297,46 +299,64 @@ func TestEnvironmentValidator(t *testing.T) {
 	}
 }
 
-func TestExtractCoreCommand(t *testing.T) {
-	validator := NewEnvironmentValidator(&Info{})
+func TestCommandChaining(t *testing.T) {
+	validator := system.NewEnvironmentValidator(&system.Info{OS: "linux", Shell: "bash"})
 
 	testCases := []struct {
-		name     string
-		input    string
-		expected string
+		name           string
+		command        string
+		shouldError    bool
+		expectedReason string
 	}{
 		{
-			name:     "simple command",
-			input:    "ls -la",
-			expected: "ls -la",
+			name:           "sudo with source",
+			command:        "sudo source ~/.bashrc",
+			shouldError:    true,
+			expectedReason: "source",
 		},
 		{
-			name:     "sudo command",
-			input:    "sudo source ~/.bashrc",
-			expected: "source ~/.bashrc",
+			name:           "install then source",
+			command:        "sudo apt install curl && source ~/.bashrc",
+			shouldError:    true,
+			expectedReason: "source",
 		},
 		{
-			name:     "command chain with install",
-			input:    "sudo apt install curl && source ~/.bashrc",
-			expected: "source ~/.bashrc",
+			name:           "complex install chain with export",
+			command:        "sudo apt update && sudo apt install -y nodejs && export PATH=$PATH:/usr/local/bin",
+			shouldError:    true,
+			expectedReason: "export",
 		},
 		{
-			name:     "command with pipes",
-			input:    "export PATH=$PATH:/usr/local/bin",
-			expected: "export PATH=$PATH:/usr/local/bin",
-		},
-		{
-			name:     "complex chain",
-			input:    "sudo apt update && sudo apt install -y nodejs && source ~/.nvm/nvm.sh",
-			expected: "source ~/.nvm/nvm.sh",
+			name:        "install only commands",
+			command:     "sudo apt update && sudo apt install -y nodejs",
+			shouldError: false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := validator.extractCoreCommand(strings.ToLower(tc.input))
-			if result != strings.ToLower(tc.expected) {
-				t.Errorf("Expected '%s', got '%s'", strings.ToLower(tc.expected), result)
+			err := validator.ValidateEnvironmentCommand(tc.command)
+
+			if tc.shouldError {
+				if err == nil {
+					t.Errorf("Expected error for command '%s', but got none", tc.command)
+					return
+				}
+
+				envErr, ok := err.(*system.EnvironmentCommandError)
+				if !ok {
+					t.Errorf("Expected EnvironmentCommandError, got %T", err)
+					return
+				}
+
+				if tc.expectedReason != "" && envErr.Reason != tc.expectedReason {
+					t.Errorf("Expected reason '%s', got '%s' for command '%s'",
+						tc.expectedReason, envErr.Reason, tc.command)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error for command '%s', but got: %v", tc.command, err)
+				}
 			}
 		})
 	}
@@ -344,7 +364,7 @@ func TestExtractCoreCommand(t *testing.T) {
 
 // Benchmark test for performance
 func BenchmarkValidateEnvironmentCommand(b *testing.B) {
-	validator := NewEnvironmentValidator(&Info{OS: "linux", Shell: "bash"})
+	validator := system.NewEnvironmentValidator(&system.Info{OS: "linux", Shell: "bash"})
 	commands := []string{
 		"ls -la",
 		"source ~/.bashrc",

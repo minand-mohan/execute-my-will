@@ -31,7 +31,7 @@ clean: ## Clean build artifacts
 
 test: ## Run tests
 	@echo "$(BLUE)Running tests...$(NC)"
-	go test -v -race -coverprofile=coverage.out ./...
+	go test -v -race -coverprofile=coverage.out ./test/
 	go tool cover -html=coverage.out -o coverage.html
 
 fmt: ## Format code

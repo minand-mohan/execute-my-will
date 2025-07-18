@@ -32,7 +32,7 @@ type Info struct {
 
 type Analyzer struct{}
 
-func NewAnalyzer() *Analyzer {
+func NewAnalyzer() SystemAnalyzer {
 	return &Analyzer{}
 }
 
