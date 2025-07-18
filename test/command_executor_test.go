@@ -85,7 +85,7 @@ func TestMockExecutor_MultipleCommands(t *testing.T) {
 
 	for i, expectedCmd := range commands {
 		if mockExecutor.ExecutedCommands[i] != expectedCmd {
-			t.Errorf("Expected command '%s' at index %d, got '%s'", 
+			t.Errorf("Expected command '%s' at index %d, got '%s'",
 				expectedCmd, i, mockExecutor.ExecutedCommands[i])
 		}
 	}
@@ -130,7 +130,7 @@ func TestMockExecutor_ShellTracking(t *testing.T) {
 	mockExecutor := &MockCommandExecutor{}
 
 	shells := []string{"bash", "zsh", "fish", "sh"}
-	
+
 	for i, shell := range shells {
 		if i%2 == 0 {
 			err := mockExecutor.Execute("test command", shell)
@@ -171,7 +171,7 @@ func TestMockExecutor_ShowCommentsTracking(t *testing.T) {
 			}
 
 			if mockExecutor.LastShowComments != tc.showComments {
-				t.Errorf("Expected LastShowComments %v, got %v", 
+				t.Errorf("Expected LastShowComments %v, got %v",
 					tc.showComments, mockExecutor.LastShowComments)
 			}
 		})
@@ -200,13 +200,13 @@ func TestMockExecutor_StatefulBehavior(t *testing.T) {
 
 	for i, expectedCmd := range expectedCommands {
 		if mockExecutor.ExecutedCommands[i] != expectedCmd {
-			t.Errorf("Expected command '%s' at index %d, got '%s'", 
+			t.Errorf("Expected command '%s' at index %d, got '%s'",
 				expectedCmd, i, mockExecutor.ExecutedCommands[i])
 		}
 	}
 
 	if mockExecutor.ExecutedScripts[0] != expectedScripts[0] {
-		t.Errorf("Expected script '%s', got '%s'", 
+		t.Errorf("Expected script '%s', got '%s'",
 			expectedScripts[0], mockExecutor.ExecutedScripts[0])
 	}
 

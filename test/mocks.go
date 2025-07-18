@@ -39,11 +39,11 @@ func (m *MockSystemAnalyzer) AnalyzeSystem() (*system.Info, error) {
 
 // MockCommandExecutor
 type MockCommandExecutor struct {
-	ShouldError       bool
-	ExecutedCommands  []string
-	ExecutedScripts   []string
-	LastShell         string
-	LastShowComments  bool
+	ShouldError      bool
+	ExecutedCommands []string
+	ExecutedScripts  []string
+	LastShell        string
+	LastShowComments bool
 }
 
 func (m *MockCommandExecutor) Execute(command string, shell string) error {

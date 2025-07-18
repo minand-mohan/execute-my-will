@@ -31,7 +31,7 @@ func TestErrorHandlingScenarios(t *testing.T) {
 			expectedPhase:  "intent_validation",
 		},
 		{
-			name:          "ai client failure", 
+			name:          "ai client failure",
 			aiClientError: true,
 			expectedPhase: "ai_generation",
 		},
@@ -103,8 +103,8 @@ func TestErrorHandlingScenarios(t *testing.T) {
 // Test complex AI response handling
 func TestComplexAIResponseHandling(t *testing.T) {
 	testCases := []struct {
-		name           string
-		response       *ai.AIResponse
+		name            string
+		response        *ai.AIResponse
 		expectExecution bool
 		expectError     bool
 	}{
@@ -194,7 +194,7 @@ func TestComplexAIResponseHandling(t *testing.T) {
 func TestEdgeCases(t *testing.T) {
 	t.Run("very long intent", func(t *testing.T) {
 		longIntent := strings.Repeat("do something complex ", 1000)
-		
+
 		mockValidator := &MockIntentValidator{}
 		mockAIClient := &MockAIClient{
 			Response: &ai.AIResponse{
@@ -217,7 +217,7 @@ func TestEdgeCases(t *testing.T) {
 
 	t.Run("special characters in intent", func(t *testing.T) {
 		specialIntent := "create file with name 'test@#$%^&*()_+-={}[]|\\:;\"'<>?,./' and content"
-		
+
 		mockValidator := &MockIntentValidator{}
 		err := mockValidator.ValidateIntent(specialIntent)
 		if err != nil {
@@ -227,7 +227,7 @@ func TestEdgeCases(t *testing.T) {
 
 	t.Run("unicode characters in intent", func(t *testing.T) {
 		unicodeIntent := "créer un fichier nommé 'тест' avec du contenu 中文"
-		
+
 		mockValidator := &MockIntentValidator{}
 		err := mockValidator.ValidateIntent(unicodeIntent)
 		if err != nil {
@@ -237,7 +237,7 @@ func TestEdgeCases(t *testing.T) {
 
 	t.Run("empty system info", func(t *testing.T) {
 		emptyInfo := &system.Info{}
-		
+
 		mockAIClient := &MockAIClient{
 			Response: &ai.AIResponse{
 				Type:    ai.ResponseTypeCommand,
@@ -255,10 +255,10 @@ func TestEdgeCases(t *testing.T) {
 // Test concurrent operations
 func TestConcurrentOperations(t *testing.T) {
 	mockAnalyzer := &MockSystemAnalyzer{}
-	
+
 	// Test concurrent system analysis calls
 	results := make(chan error, 10)
-	
+
 	for i := 0; i < 10; i++ {
 		go func() {
 			_, err := mockAnalyzer.AnalyzeSystem()
@@ -285,7 +285,7 @@ func simulateExecutionFlow(
 	executor system.CommandExecutor,
 	intent string,
 ) (string, error) {
-	
+
 	// Phase 1: System Analysis
 	_, err := analyzer.AnalyzeSystem()
 	if err != nil {
@@ -328,7 +328,7 @@ func simulateExecutionFlow(
 	} else if response.Type == ai.ResponseTypeScript {
 		err = executor.ExecuteScript(response.Content, "bash", false)
 	}
-	
+
 	if err != nil {
 		return "execution", err
 	}
@@ -342,7 +342,7 @@ func simulateResponseHandling(
 	executor system.CommandExecutor,
 	intent string,
 ) (bool, error) {
-	
+
 	sysInfo := &system.Info{OS: "linux", Shell: "bash"}
 	response, err := aiClient.GenerateResponse(intent, sysInfo)
 	if err != nil {

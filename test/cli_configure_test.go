@@ -63,7 +63,7 @@ func TestParseIntInput(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := parseIntInputForTest(tc.input, tc.defaultValue)
-			
+
 			if tc.shouldError {
 				if err == nil {
 					t.Errorf("Expected error for input '%s', but got none", tc.input)
@@ -73,7 +73,7 @@ func TestParseIntInput(t *testing.T) {
 					t.Errorf("Unexpected error for input '%s': %v", tc.input, err)
 				}
 			}
-			
+
 			if result != tc.expectedValue {
 				t.Errorf("Expected %d, got %d", tc.expectedValue, result)
 			}
@@ -143,7 +143,7 @@ func TestParseFloatInput(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := parseFloatInputForTest(tc.input, tc.defaultValue)
-			
+
 			if tc.shouldError {
 				if err == nil {
 					t.Errorf("Expected error for input '%s', but got none", tc.input)
@@ -153,7 +153,7 @@ func TestParseFloatInput(t *testing.T) {
 					t.Errorf("Unexpected error for input '%s': %v", tc.input, err)
 				}
 			}
-			
+
 			if result != tc.expectedValue {
 				t.Errorf("Expected %f, got %f", tc.expectedValue, result)
 			}
@@ -235,7 +235,7 @@ func TestIsValidModelForProvider(t *testing.T) {
 			provider: "gemini",
 			expected: false,
 		},
-		
+
 		// OpenAI models
 		{
 			name:     "valid openai model",
@@ -255,7 +255,7 @@ func TestIsValidModelForProvider(t *testing.T) {
 			provider: "openai",
 			expected: false,
 		},
-		
+
 		// Anthropic models
 		{
 			name:     "valid anthropic model",
@@ -269,7 +269,7 @@ func TestIsValidModelForProvider(t *testing.T) {
 			provider: "anthropic",
 			expected: false,
 		},
-		
+
 		// Unknown provider
 		{
 			name:     "unknown provider",
@@ -277,7 +277,7 @@ func TestIsValidModelForProvider(t *testing.T) {
 			provider: "unknown",
 			expected: false,
 		},
-		
+
 		// Empty cases
 		{
 			name:     "empty model",
@@ -297,7 +297,7 @@ func TestIsValidModelForProvider(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := isValidModelForProviderForTest(tc.model, tc.provider)
 			if result != tc.expected {
-				t.Errorf("Expected %v for model '%s' with provider '%s', got %v", 
+				t.Errorf("Expected %v for model '%s' with provider '%s', got %v",
 					tc.expected, tc.model, tc.provider, result)
 			}
 		})
@@ -354,7 +354,7 @@ func TestValidateModeInput(t *testing.T) {
 
 func TestProviderSelection(t *testing.T) {
 	validProviders := []string{"gemini", "openai", "anthropic"}
-	
+
 	for _, provider := range validProviders {
 		t.Run("provider_"+provider, func(t *testing.T) {
 			if !isValidProviderForTest(provider) {
@@ -380,7 +380,7 @@ func parseIntInputForTest(input string, defaultValue int) (int, error) {
 	if input == "" {
 		return defaultValue, nil
 	}
-	
+
 	// Simple integer parsing simulation
 	switch input {
 	case "1000":
@@ -401,7 +401,7 @@ func parseFloatInputForTest(input string, defaultValue float32) (float32, error)
 	if input == "" {
 		return defaultValue, nil
 	}
-	
+
 	// Simple float parsing simulation
 	switch input {
 	case "0.5":
@@ -423,15 +423,15 @@ func maskAPIKeyForTest(apiKey string) string {
 	if apiKey == "" {
 		return ""
 	}
-	
+
 	if len(apiKey) <= 4 {
 		return strings.Repeat("*", len(apiKey))
 	}
-	
+
 	if len(apiKey) < 8 {
 		return strings.Repeat("*", len(apiKey))
 	}
-	
+
 	// Show first 4 characters, mask the rest with exactly 4 asterisks
 	return apiKey[:4] + "****"
 }
@@ -440,7 +440,7 @@ func isValidModelForProviderForTest(model, provider string) bool {
 	if model == "" || provider == "" {
 		return false
 	}
-	
+
 	switch provider {
 	case "gemini":
 		return model == "gemini-pro" || model == "gemini-2.5-pro"

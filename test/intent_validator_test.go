@@ -107,52 +107,52 @@ func TestValidator_DirectoryOperationDetection(t *testing.T) {
 	validator := system.NewValidator(sysInfo)
 
 	testCases := []struct {
-		name                string
-		intent              string
-		shouldCheckDir      bool // Whether directory validation should be triggered
-		expectValidation    bool // Whether we expect validation to pass
+		name             string
+		intent           string
+		shouldCheckDir   bool // Whether directory validation should be triggered
+		expectValidation bool // Whether we expect validation to pass
 	}{
 		{
-			name:                "move operation with path",
-			intent:              "move file.txt to /tmp/folder",
-			shouldCheckDir:      true,
-			expectValidation:    false, // "/tmp/folder" likely doesn't exist
+			name:             "move operation with path",
+			intent:           "move file.txt to /tmp/folder",
+			shouldCheckDir:   true,
+			expectValidation: false, // "/tmp/folder" likely doesn't exist
 		},
 		{
-			name:                "copy operation with path", 
-			intent:              "copy data.txt to ./backup",
-			shouldCheckDir:      true,
-			expectValidation:    false, // "./backup" doesn't exist
+			name:             "copy operation with path",
+			intent:           "copy data.txt to ./backup",
+			shouldCheckDir:   true,
+			expectValidation: false, // "./backup" doesn't exist
 		},
 		{
-			name:                "list operation",
-			intent:              "list contents of directory",
-			shouldCheckDir:      true,
-			expectValidation:    true, // "directory" is a common word, should be ignored
+			name:             "list operation",
+			intent:           "list contents of directory",
+			shouldCheckDir:   true,
+			expectValidation: true, // "directory" is a common word, should be ignored
 		},
 		{
-			name:                "navigate operation with path",
-			intent:              "navigate to /some/folder",
-			shouldCheckDir:      true,
-			expectValidation:    false, // "/some/folder" doesn't exist  
+			name:             "navigate operation with path",
+			intent:           "navigate to /some/folder",
+			shouldCheckDir:   true,
+			expectValidation: false, // "/some/folder" doesn't exist
 		},
 		{
-			name:                "cd operation",
-			intent:              "cd to home",
-			shouldCheckDir:      true,
-			expectValidation:    true, // "home" is a known directory
+			name:             "cd operation",
+			intent:           "cd to home",
+			shouldCheckDir:   true,
+			expectValidation: true, // "home" is a known directory
 		},
 		{
-			name:                "non-directory operation",
-			intent:              "show system information",
-			shouldCheckDir:      false,
-			expectValidation:    true, // No directory validation needed
+			name:             "non-directory operation",
+			intent:           "show system information",
+			shouldCheckDir:   false,
+			expectValidation: true, // No directory validation needed
 		},
 		{
-			name:                "install package",
-			intent:              "install nginx package",
-			shouldCheckDir:      false,
-			expectValidation:    true, // No directory validation needed
+			name:             "install package",
+			intent:           "install nginx package",
+			shouldCheckDir:   false,
+			expectValidation: true, // No directory validation needed
 		},
 	}
 
@@ -176,7 +176,7 @@ func TestValidator_DirectoryOperationDetection(t *testing.T) {
 func TestValidator_KnownDirectories(t *testing.T) {
 	sysInfo := &system.Info{
 		OS:         "linux",
-		Shell:      "bash", 
+		Shell:      "bash",
 		CurrentDir: "/home/user",
 		HomeDir:    "/home/user",
 	}

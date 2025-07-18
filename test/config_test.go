@@ -141,8 +141,8 @@ func TestConfig_ValidateDefaults(t *testing.T) {
 	cfg := &config.Config{
 		APIKey:      "test-key",
 		Mode:        "monarch",
-		MaxTokens:   0,     // This should trigger default
-		Temperature: -0.5,  // This should trigger default (invalid range)
+		MaxTokens:   0,    // This should trigger default
+		Temperature: -0.5, // This should trigger default (invalid range)
 		// Missing other fields
 	}
 
@@ -218,7 +218,7 @@ func TestConfig_GetDefaultModel(t *testing.T) {
 		t.Run(tc.provider, func(t *testing.T) {
 			model := config.GetDefaultModel(tc.provider)
 			if model != tc.expectedModel {
-				t.Errorf("Expected model '%s' for provider '%s', got '%s'", 
+				t.Errorf("Expected model '%s' for provider '%s', got '%s'",
 					tc.expectedModel, tc.provider, model)
 			}
 		})
@@ -275,7 +275,7 @@ func TestConfig_GetModels(t *testing.T) {
 
 			for i, expectedModel := range tc.expectedModels {
 				if models[i] != expectedModel {
-					t.Errorf("Expected model '%s' at index %d, got '%s'", 
+					t.Errorf("Expected model '%s' at index %d, got '%s'",
 						expectedModel, i, models[i])
 				}
 			}

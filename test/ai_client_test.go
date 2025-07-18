@@ -23,7 +23,7 @@ func TestAIClient_GenerateResponse(t *testing.T) {
 	// This test requires actual AI provider setup, so we'll test interface compliance
 	// and error handling rather than actual AI calls
 	_, err := ai.NewClient(cfg)
-	
+
 	// The client creation might fail due to missing real API keys, which is expected in tests
 	if err != nil {
 		t.Logf("AI Client creation failed as expected in test environment: %v", err)

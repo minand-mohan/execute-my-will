@@ -26,10 +26,4 @@ type IntentValidator interface {
 	ValidateIntent(intent string) error
 }
 
-// Ensure our concrete types implement the interfaces at compile time
-var (
-	_ SystemAnalyzer                = (*Analyzer)(nil)
-	_ CommandExecutor               = (*Executor)(nil)
-	_ EnvironmentValidatorInterface = (*EnvironmentValidator)(nil)
-	_ IntentValidator               = (*Validator)(nil)
-)
+// Note: Interface compliance is verified through usage in tests

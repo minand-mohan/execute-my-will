@@ -52,7 +52,7 @@ func TestAIClient_BuildCommandPrompt(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			sysInfo.Shell = tc.shell
-			
+
 			// Test that the system info is properly used
 			// We can verify this by checking the shell field is used correctly
 			if sysInfo.Shell != tc.shell {
@@ -74,24 +74,24 @@ func TestAIClient_BuildCommandPrompt(t *testing.T) {
 func TestParseAIResponse(t *testing.T) {
 	// We need to access the parseAIResponse function - let's use reflection
 	// This is a bit hacky but necessary since the function is not exported
-	
+
 	testCases := []struct {
-		name           string
-		response       string
-		expectedType   ai.ResponseType
+		name            string
+		response        string
+		expectedType    ai.ResponseType
 		expectedContent string
 		expectedError   string
 	}{
 		{
-			name:           "simple command response",
-			response:       "COMMAND: ls -la",
-			expectedType:   ai.ResponseTypeCommand,
+			name:            "simple command response",
+			response:        "COMMAND: ls -la",
+			expectedType:    ai.ResponseTypeCommand,
 			expectedContent: "ls -la",
 		},
 		{
-			name:           "command with extra whitespace",
-			response:       "COMMAND:   ls -la   ",
-			expectedType:   ai.ResponseTypeCommand,
+			name:            "command with extra whitespace",
+			response:        "COMMAND:   ls -la   ",
+			expectedType:    ai.ResponseTypeCommand,
 			expectedContent: "ls -la",
 		},
 		{
@@ -102,7 +102,7 @@ echo "Starting task"
 ls -la
 echo "Task complete"
 ` + "```",
-			expectedType:   ai.ResponseTypeScript,
+			expectedType:    ai.ResponseTypeScript,
 			expectedContent: "echo \"Starting task\"\nls -la\necho \"Task complete\"",
 		},
 		{
@@ -112,7 +112,7 @@ echo "Task complete"
 echo "hello"
 pwd
 ` + "```",
-			expectedType:   ai.ResponseTypeScript,
+			expectedType:    ai.ResponseTypeScript,
 			expectedContent: "echo \"hello\"\npwd",
 		},
 		{
@@ -122,31 +122,31 @@ pwd
 Write-Host "Starting task"
 Get-Location
 ` + "```",
-			expectedType:   ai.ResponseTypeScript,
+			expectedType:    ai.ResponseTypeScript,
 			expectedContent: "Write-Host \"Starting task\"\nGet-Location",
 		},
 		{
-			name:           "failure response",
-			response:       "FAILURE: Cannot complete this unsafe task",
-			expectedType:   ai.ResponseTypeFailure,
-			expectedError:  "Cannot complete this unsafe task",
+			name:          "failure response",
+			response:      "FAILURE: Cannot complete this unsafe task",
+			expectedType:  ai.ResponseTypeFailure,
+			expectedError: "Cannot complete this unsafe task",
 		},
 		{
-			name:           "failure with extra whitespace",
-			response:       "FAILURE:   Task too vague   ",
-			expectedType:   ai.ResponseTypeFailure,
-			expectedError:  "Task too vague",
+			name:          "failure with extra whitespace",
+			response:      "FAILURE:   Task too vague   ",
+			expectedType:  ai.ResponseTypeFailure,
+			expectedError: "Task too vague",
 		},
 		{
-			name:           "fallback to command for unknown format",
-			response:       "Just some random text",
-			expectedType:   ai.ResponseTypeCommand,
+			name:            "fallback to command for unknown format",
+			response:        "Just some random text",
+			expectedType:    ai.ResponseTypeCommand,
 			expectedContent: "Just some random text",
 		},
 		{
-			name:           "empty response",
-			response:       "",
-			expectedType:   ai.ResponseTypeCommand,
+			name:            "empty response",
+			response:        "",
+			expectedType:    ai.ResponseTypeCommand,
 			expectedContent: "",
 		},
 	}
@@ -164,7 +164,7 @@ Get-Location
 
 			sysInfo := &system.Info{OS: "linux", Shell: "bash"}
 			response, err := mockClient.GenerateResponse("test", sysInfo)
-			
+
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 				return
@@ -276,7 +276,7 @@ func testExponentialRetry(fn func(string) (string, error), prompt string, maxRet
 		if err == nil {
 			return resp, nil
 		}
-		
+
 		if i < maxRetries-1 { // Don't sleep on the last attempt
 			time.Sleep(delay)
 			delay *= 2
@@ -319,7 +319,7 @@ func TestJoinSliceLogic(t *testing.T) {
 		{
 			name:     "more than 100 items",
 			slice:    make([]string, 150),
-			expected: "", // Will be set in test  
+			expected: "", // Will be set in test
 		},
 	}
 
@@ -337,7 +337,7 @@ func TestJoinSliceLogic(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := joinSliceForTest(tc.slice)
-			
+
 			if tc.name == "more than 100 items" {
 				if !strings.HasSuffix(result, "...") {
 					t.Error("Expected result to end with '...' for large slices")
@@ -382,7 +382,7 @@ func TestScriptFormatDetection(t *testing.T) {
 		},
 		{
 			name:            "zsh shell",
-			shell:           "zsh", 
+			shell:           "zsh",
 			expectedFormat:  "bash",
 			expectedComment: "#",
 		},
@@ -427,11 +427,11 @@ func TestScriptFormatDetection(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			format, comment := getScriptFormatForTest(tc.shell)
-			
+
 			if format != tc.expectedFormat {
 				t.Errorf("Expected format '%s', got '%s'", tc.expectedFormat, format)
 			}
-			
+
 			if comment != tc.expectedComment {
 				t.Errorf("Expected comment '%s', got '%s'", tc.expectedComment, comment)
 			}
