@@ -15,6 +15,7 @@ import (
 	"github.com/minand-mohan/execute-my-will/internal/ai"
 	"github.com/minand-mohan/execute-my-will/internal/config"
 	"github.com/minand-mohan/execute-my-will/internal/system"
+	"github.com/minand-mohan/execute-my-will/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -74,9 +75,7 @@ func executeWill(cmd *cobra.Command, args []string) error {
 
 	// Check if there are any arguments
 	if len(args) == 0 {
-		fmt.Println("🤔 Please provide an intent, my lord!")
-		fmt.Println("Example:")
-		fmt.Println("  execute-my-will 'create a new file named 'my-file.txt' in the current directory'")
+		ui.PrintStatusBox("QUEST REQUIRED", "Please provide an intent, my lord!\n\nExample:\n  execute-my-will 'create a new file named my-file.txt in the current directory'", "info")
 		return nil
 	}
 
@@ -84,13 +83,7 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		if config.IsConfigNotFound(err) {
-			fmt.Println("🔧 Configuration file not found, my lord!")
-			fmt.Println("📋 Please run 'execute-my-will configure' to set up your configuration first.")
-			fmt.Println()
-			fmt.Println("Example:")
-			fmt.Println("  execute-my-will configure")
-			fmt.Println("  # or set specific values:")
-			fmt.Println("  execute-my-will configure --api-key your-key --provider gemini --mode monarch")
+			ui.PrintStatusBox("🔧 CONFIGURATION REQUIRED", "Configuration file not found, my lord!\n\n📋 Please run 'execute-my-will configure' to set up your configuration first.\n\nExample:\n  execute-my-will configure\n  # or set specific values:\n  execute-my-will configure --api-key your-key --provider gemini --mode monarch", "warning")
 			return nil
 		}
 		return fmt.Errorf("failed to load configuration: %w", err)
@@ -109,8 +102,10 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	// Join all arguments as the user's intent
 	intent := strings.Join(args, " ")
 
-	fmt.Printf("🛡️  Your faithful knight has received your command: \"%s\"\n", intent)
-	fmt.Println("🔍 Analyzing your noble request...")
+	ui.PrintKnightMessage(fmt.Sprintf("Your faithful knight has received your command: \"%s\"", intent))
+	ui.PrintInfoMessage("Analyzing your noble request...")
+
+	ui.PrintPhaseHeader("🧙", "Consulting with the ancient oracles...")
 
 	// Initialize system analyzer
 	analyzer := system.NewAnalyzer()
@@ -124,7 +119,7 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	// Validate the intent
 	validator := system.NewValidator(sysInfo)
 	if err := validator.ValidateIntent(intent); err != nil {
-		fmt.Printf("⚠️  Forgive me sire, but your request needs clarification: %s\n", err.Error())
+		ui.PrintStatusBox("⚠️  REQUEST CLARIFICATION NEEDED", fmt.Sprintf("Forgive me sire, but your request needs clarification: %s", err.Error()), "warning")
 		return nil
 	}
 
@@ -135,7 +130,6 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	}
 
 	// Generate response (command or script)
-	fmt.Println("🧙 Consulting with the ancient oracles...")
 	response, err := aiClient.GenerateResponse(intent, sysInfo)
 	if err != nil {
 		return fmt.Errorf("the oracles have failed us, sire: %w", err)
@@ -147,28 +141,23 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	// Handle different response types
 	switch response.Type {
 	case ai.ResponseTypeFailure:
-		fmt.Printf("\n❌ Alas, I cannot fulfill this quest: %s\n", response.Error)
+		ui.PrintStatusBox("❌ QUEST CANNOT BE COMPLETED", fmt.Sprintf("Alas, I cannot fulfill this quest: %s", response.Error), "error")
 		return nil
 
 	case ai.ResponseTypeCommand:
 		// Display the command for confirmation
-		fmt.Printf("\n⚔️  I propose to execute this command on your behalf:\n")
-		fmt.Printf("   %s\n", response.Content)
+		ui.PrintCommandBox(response.Content)
 		taskContent = response.Content
 		isScript = false
 
 		// If in royal-heir mode, provide detailed explanation for commands only
 		if cfg.Mode == "royal-heir" {
-			fmt.Println("================================================")
-			fmt.Println("")
-			fmt.Println("📚 As you are still learning the ways of the realm, allow me to explain:")
 			explanation, err := aiClient.ExplainCommand(response.Content, sysInfo)
 			if err != nil {
-				fmt.Printf("⚠️  I encountered difficulty explaining the command, but it should still work, my lord: %v\n\n", err)
+				ui.PrintStatusBox("⚠️  EXPLANATION DIFFICULTY", fmt.Sprintf("I encountered difficulty explaining the command, but it should still work, my lord: %v", err), "warning")
 			} else {
-				fmt.Printf("%s\n", explanation)
+				ui.PrintStatusBox("📚 COMMAND EXPLANATION", fmt.Sprintf("As you are still learning the ways of the realm, allow me to explain:\n\n%s", explanation), "info")
 			}
-			fmt.Println("================================================")
 		}
 
 		// Validate if the command affects the environment
@@ -184,19 +173,40 @@ func executeWill(cmd *cobra.Command, args []string) error {
 
 	case ai.ResponseTypeScript:
 		// Display the script for confirmation
-		fmt.Printf("\n📜 I propose to execute this script on your behalf:\n")
-		fmt.Println("================================================")
-
-		// Display script with or without comments based on mode
 		showComments := cfg.Mode == "royal-heir"
-		displayScript(response.Content, showComments)
+		scriptLines := strings.Split(response.Content, "\n")
 
-		fmt.Println("================================================")
+		// Filter and format script lines based on mode
+		var displayLines []string
+		displayLines = append(displayLines, "") // Empty line at start
+
+		for _, line := range scriptLines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+
+			// Check if line is a comment
+			isComment := strings.HasPrefix(line, "#") || strings.HasPrefix(line, "REM")
+
+			if isComment && showComments {
+				// Display comment with proper formatting
+				comment := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(line, "#"), "REM"))
+				displayLines = append(displayLines, ui.CommentText("• "+comment))
+			} else if !isComment {
+				// Display command with arrow prefix
+				displayLines = append(displayLines, ui.CommandText("→ "+line))
+			}
+		}
+		displayLines = append(displayLines, "") // Empty line at end
+
+		template := ui.DefaultTemplate()
+		template.PrintBox("📜 PROPOSED SCRIPT", displayLines)
 		taskContent = response.Content
 		isScript = true
 
 		if cfg.Mode == "royal-heir" {
-			fmt.Println("📚 This script will execute each command in sequence, maintaining context between steps.")
+			ui.PrintStatusBox("📚 SCRIPT INFORMATION", "This script will execute each command in sequence, maintaining context between steps.", "info")
 		}
 	}
 
@@ -215,13 +225,13 @@ func executeWill(cmd *cobra.Command, args []string) error {
 
 	userResponse = strings.TrimSpace(strings.ToLower(userResponse))
 	if userResponse != "y" && userResponse != "yes" {
-		fmt.Println("🙏 I misunderstood your will, sire. Please try again with clearer instructions.")
+		ui.PrintStatusBox("🙏 QUEST DECLINED", "I understand, sire. Please try again when you're ready.", "info")
 		return nil
 	}
 
 	// Execute the task with enhanced interactive support
-	fmt.Println("⚡ Executing your quest with honor...")
-	fmt.Println("") // Add some space before execution
+	fmt.Println("🛡️  Executing your quest with honor...")
+	fmt.Println()
 
 	executor := system.NewExecutor()
 	var execErr error
@@ -234,47 +244,25 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	}
 
 	if execErr != nil {
-		fmt.Printf("\n⚔️  Alas! The quest has encountered difficulties, my lord: %v\n", execErr)
+		var suggestionMsg string
 
 		// Check if it's a common issue and provide helpful suggestions
 		if strings.Contains(execErr.Error(), "permission denied") {
-			fmt.Println("💡 This might require elevated privileges. Consider adding 'sudo' to your request if appropriate.")
+			suggestionMsg = "\n\n💡 This might require elevated privileges. Consider adding 'sudo' to your request if appropriate."
 		} else if strings.Contains(execErr.Error(), "command not found") {
-			fmt.Println("💡 The command appears to be missing. The system may need to install required packages first.")
+			suggestionMsg = "\n\n💡 The command appears to be missing. The system may need to install required packages first."
 		} else if strings.Contains(execErr.Error(), "no such file or directory") {
-			fmt.Println("💡 Please ensure all file paths in your request are correct and accessible.")
+			suggestionMsg = "\n\n💡 Please ensure all file paths in your request are correct and accessible."
 		}
 
+		ui.PrintStatusBox("⚔️  QUEST DIFFICULTIES", fmt.Sprintf("Alas! The quest has encountered difficulties, my lord: %v%s", execErr, suggestionMsg), "error")
 		return nil // Don't return the error to avoid double error messages
 	}
 
 	if isScript {
-		fmt.Printf("\n🏆 Your script has been executed successfully, sire!\n")
+		ui.PrintStatusBox("🏆 QUEST COMPLETED", "Your script has been executed successfully, sire!", "success")
 	} else {
-		fmt.Printf("\n🏆 Your command has been executed successfully, sire!\n")
+		ui.PrintStatusBox("🏆 QUEST COMPLETED", "Your command has been executed successfully, sire!", "success")
 	}
 	return nil
-}
-
-// displayScript shows the script content with or without comments
-func displayScript(scriptContent string, showComments bool) {
-	lines := strings.Split(scriptContent, "\n")
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		// Check if line is a comment
-		isComment := strings.HasPrefix(line, "#") || strings.HasPrefix(line, "REM")
-
-		if isComment && showComments {
-			// Display comment in a different style
-			fmt.Printf("   💬 %s\n", strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(line, "#"), "REM")))
-		} else if !isComment {
-			// Display command
-			fmt.Printf("   %s\n", line)
-		}
-	}
 }
