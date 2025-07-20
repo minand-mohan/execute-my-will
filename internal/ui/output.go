@@ -26,50 +26,50 @@ func NewOutputHighlighter(showTimestamps bool, indentLevel int) *OutputHighlight
 // Pattern matchers for different types of output
 var (
 	errorPatterns = regexp.MustCompile(`(?i)(error|failed|fatal|panic|exception|denied|cannot|unable to|not found|invalid|illegal)`)
-	
+
 	warningPatterns = regexp.MustCompile(`(?i)(warning|warn|deprecated|caution|note|notice)`)
-	
+
 	successPatterns = regexp.MustCompile(`(?i)(success|successful|completed|installed|configured|done|finished|ok|ready|active|enabled|started)`)
-	
+
 	statusPatterns = regexp.MustCompile(`(?i)(downloading|installing|configuring|building|compiling|updating|connecting|loading|processing|running|starting|stopping)`)
-	
+
 	progressPatterns = regexp.MustCompile(`(\d+%|\d+/\d+|\[\d+/\d+\]|\d+\.\d+\s*(MB|GB|KB))`)
 )
 
 // StreamOutput processes output line by line with highlighting
 func (oh *OutputHighlighter) StreamOutput(reader io.Reader, prefix string) error {
 	scanner := bufio.NewScanner(reader)
-	
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		
+
 		// Build the formatted line
 		var formattedLine strings.Builder
-		
+
 		// Add indent
 		for i := 0; i < oh.indentLevel; i++ {
 			formattedLine.WriteString("  ")
 		}
-		
+
 		// Add timestamp if enabled
 		if oh.showTimestamps {
 			timestamp := time.Now().Format("15:04:05")
 			formattedLine.WriteString(TimestampText(fmt.Sprintf("[%s] ", timestamp)))
 		}
-		
+
 		// Add prefix if provided
 		if prefix != "" {
 			formattedLine.WriteString(prefix)
 		}
-		
+
 		// Apply highlighting based on content
 		highlightedLine := oh.highlightLine(line)
 		formattedLine.WriteString(highlightedLine)
-		
+
 		// Print the formatted line
 		fmt.Println(formattedLine.String())
 	}
-	
+
 	return scanner.Err()
 }
 

@@ -7,14 +7,14 @@ import (
 // Color definitions for the medieval knight theme
 var (
 	// Primary colors
-	Gold   = color.New(color.FgYellow, color.Bold)     // Titles, success, knight messages
-	Blue   = color.New(color.FgBlue)                   // Information, status updates
-	Red    = color.New(color.FgRed, color.Bold)       // Errors, failures
-	Green  = color.New(color.FgGreen)                  // Success messages, confirmations
-	Purple = color.New(color.FgMagenta)               // AI consultation, mystical elements
-	White  = color.New(color.FgWhite)                 // Default text
-	Cyan   = color.New(color.FgCyan)                  // Commands, code blocks
-	Yellow = color.New(color.FgYellow)                // Warnings
+	Gold   = color.New(color.FgYellow, color.Bold) // Titles, success, knight messages
+	Blue   = color.New(color.FgBlue)               // Information, status updates
+	Red    = color.New(color.FgRed, color.Bold)    // Errors, failures
+	Green  = color.New(color.FgGreen)              // Success messages, confirmations
+	Purple = color.New(color.FgMagenta)            // AI consultation, mystical elements
+	White  = color.New(color.FgWhite)              // Default text
+	Cyan   = color.New(color.FgCyan)               // Commands, code blocks
+	Yellow = color.New(color.FgYellow)             // Warnings
 
 	// Background colors for emphasis
 	RedBg    = color.New(color.BgRed, color.FgWhite, color.Bold)
@@ -25,7 +25,7 @@ var (
 	// Faint colors for less important text
 	Faint = color.New(color.Faint)
 	Gray  = color.New(color.FgHiBlack)
-	
+
 	// Italic text
 	Italic = color.New(color.Italic)
 )

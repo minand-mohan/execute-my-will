@@ -288,7 +288,7 @@ func displayConfiguration(cfg *config.Config) {
 		"Temperature": ui.Blue.Sprint(fmt.Sprintf("%.1f", cfg.Temperature)),
 		"Mode":        ui.Purple.Sprint(cfg.Mode),
 	}
-	
+
 	ui.PrintConfigBox(configs)
 
 	// Mode-specific message
@@ -298,9 +298,9 @@ func displayConfiguration(cfg *config.Config) {
 	} else {
 		modeMsg = "You have chosen the path of the learning heir!\nCommands will be shown with detailed explanations to aid your learning."
 	}
-	
+
 	ui.PrintStatusBox("CONFIGURATION COMPLETE", modeMsg, "success")
-	
+
 	// Final message
 	finalMsg := "Your knight is now ready to serve!\n\n💡 Try: " + ui.CommandText("execute-my-will \"list my files\"")
 	ui.PrintStatusBox("READY TO SERVE", finalMsg, "info")

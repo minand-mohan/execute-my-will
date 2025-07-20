@@ -172,23 +172,23 @@ func executeWill(cmd *cobra.Command, args []string) error {
 		}
 
 	case ai.ResponseTypeScript:
-		// Display the script for confirmation  
+		// Display the script for confirmation
 		showComments := cfg.Mode == "royal-heir"
 		scriptLines := strings.Split(response.Content, "\n")
-		
+
 		// Filter and format script lines based on mode
 		var displayLines []string
 		displayLines = append(displayLines, "") // Empty line at start
-		
+
 		for _, line := range scriptLines {
 			line = strings.TrimSpace(line)
 			if line == "" {
 				continue
 			}
-			
+
 			// Check if line is a comment
 			isComment := strings.HasPrefix(line, "#") || strings.HasPrefix(line, "REM")
-			
+
 			if isComment && showComments {
 				// Display comment with proper formatting
 				comment := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(line, "#"), "REM"))
@@ -199,7 +199,7 @@ func executeWill(cmd *cobra.Command, args []string) error {
 			}
 		}
 		displayLines = append(displayLines, "") // Empty line at end
-		
+
 		template := ui.DefaultTemplate()
 		template.PrintBox("📜 PROPOSED SCRIPT", displayLines)
 		taskContent = response.Content
@@ -245,7 +245,7 @@ func executeWill(cmd *cobra.Command, args []string) error {
 
 	if execErr != nil {
 		var suggestionMsg string
-		
+
 		// Check if it's a common issue and provide helpful suggestions
 		if strings.Contains(execErr.Error(), "permission denied") {
 			suggestionMsg = "\n\n💡 This might require elevated privileges. Consider adding 'sudo' to your request if appropriate."
@@ -254,7 +254,7 @@ func executeWill(cmd *cobra.Command, args []string) error {
 		} else if strings.Contains(execErr.Error(), "no such file or directory") {
 			suggestionMsg = "\n\n💡 Please ensure all file paths in your request are correct and accessible."
 		}
-		
+
 		ui.PrintStatusBox("⚔️  QUEST DIFFICULTIES", fmt.Sprintf("Alas! The quest has encountered difficulties, my lord: %v%s", execErr, suggestionMsg), "error")
 		return nil // Don't return the error to avoid double error messages
 	}
@@ -266,4 +266,3 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	}
 	return nil
 }
-
