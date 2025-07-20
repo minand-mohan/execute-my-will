@@ -17,6 +17,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/minand-mohan/execute-my-will/internal/ui"
 )
 
 type Executor struct{}
@@ -26,15 +28,21 @@ func NewExecutor() *Executor {
 }
 
 func (e *Executor) Execute(command string, shell string) error {
-
-	fmt.Printf("🗡️  Executing thy will, my lord: %s\n", command)
-	fmt.Println("═══════════════════════════════════════════════════════")
+	ui.PrintExecutionHeader(fmt.Sprintf("Executing thy will, my lord: %s", command))
 
 	cmd := exec.Command(shell, "/C", command)
 
-	// Hook I/O streams
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Create pipes to capture output for highlighting
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %v", err)
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %v", err)
+	}
+
 	cmd.Stdin = os.Stdin
 
 	// Ensure it runs in the same console
@@ -43,9 +51,37 @@ func (e *Executor) Execute(command string, shell string) error {
 		HideWindow:    false,
 	}
 
-	err := cmd.Run()
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return err
+	}
 
-	fmt.Println("═══════════════════════════════════════════════════════")
+	// Create output highlighter
+	highlighter := ui.NewOutputHighlighter(false, 1)
+
+	// Stream outputs concurrently
+	done := make(chan error, 2)
+
+	go func() {
+		done <- highlighter.StreamOutput(stdoutPipe, "")
+	}()
+
+	go func() {
+		done <- highlighter.StreamOutput(stderrPipe, "")
+	}()
+
+	// Wait for both streams to complete
+	for i := 0; i < 2; i++ {
+		if streamErr := <-done; streamErr != nil {
+			ui.PrintWarningMessage(fmt.Sprintf("Stream error: %v", streamErr))
+		}
+	}
+
+	// Wait for command to complete
+	err = cmd.Wait()
+
+	ui.PrintSeparator()
+
 	return err
 }
 
@@ -87,8 +123,7 @@ func (e *Executor) ExecuteScript(scriptContent string, shell string, showComment
 		e.cleanupOldScripts(tmpDir)
 	}()
 
-	fmt.Printf("🗡️  Executing thy script, my lord\n")
-	fmt.Println("═══════════════════════════════════════════════════════")
+	ui.PrintExecutionHeader("Executing thy script, my lord")
 
 	// Execute the script
 	var cmd *exec.Cmd
@@ -98,8 +133,17 @@ func (e *Executor) ExecuteScript(scriptContent string, shell string, showComment
 		cmd = exec.Command("cmd", "/C", scriptPath)
 	}
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Create pipes for enhanced output capture
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %v", err)
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %v", err)
+	}
+
 	cmd.Stdin = os.Stdin
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -107,9 +151,36 @@ func (e *Executor) ExecuteScript(scriptContent string, shell string, showComment
 		HideWindow:    false,
 	}
 
-	err = cmd.Run()
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return err
+	}
 
-	fmt.Println("═══════════════════════════════════════════════════════")
+	// Create output highlighter with timestamps for scripts
+	highlighter := ui.NewOutputHighlighter(true, 1)
+
+	// Stream outputs concurrently
+	done := make(chan error, 2)
+
+	go func() {
+		done <- highlighter.StreamOutput(stdoutPipe, "")
+	}()
+
+	go func() {
+		done <- highlighter.StreamOutput(stderrPipe, "")
+	}()
+
+	// Wait for both streams
+	for i := 0; i < 2; i++ {
+		if streamErr := <-done; streamErr != nil {
+			ui.PrintWarningMessage(fmt.Sprintf("Stream error: %v", streamErr))
+		}
+	}
+
+	// Wait for command completion
+	err = cmd.Wait()
+
+	ui.PrintSeparator()
 
 	return err
 }

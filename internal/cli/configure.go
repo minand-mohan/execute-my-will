@@ -14,6 +14,7 @@ import (
 
 	"github.com/minand-mohan/execute-my-will/internal/ai"
 	"github.com/minand-mohan/execute-my-will/internal/config"
+	"github.com/minand-mohan/execute-my-will/internal/ui"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +36,7 @@ func init() {
 }
 
 func runConfigure(cmd *cobra.Command, args []string) error {
-	fmt.Println("🔧 Configuring your digital knight...")
+	ui.PrintKnightMessage("Configuring your digital knight...")
 	fmt.Println()
 
 	// Check if any flags were provided for non-interactive mode
@@ -87,11 +88,11 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 			cfg.Mode = mode
 		}
 
-		fmt.Println("📝 Updating configuration with provided values...")
+		ui.PrintInfoMessage("Updating configuration with provided values...")
 	} else {
 		// Interactive mode
-		fmt.Println("⚙️  Interactive configuration mode")
-		fmt.Println("📋 Press Enter to use default values shown in [brackets]")
+		ui.PrintInfoMessage("Interactive configuration mode")
+		ui.PrintInfoMessage("Press Enter to use default values shown in [brackets]")
 		fmt.Println()
 
 		if err := runInteractiveConfiguration(cfg); err != nil {
@@ -111,7 +112,7 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 
 	// Display final configuration
 	fmt.Println()
-	fmt.Println("✅ Configuration saved successfully!")
+	ui.PrintSuccessMessage("Configuration saved successfully!")
 	fmt.Println()
 	displayConfiguration(cfg)
 
@@ -128,11 +129,11 @@ func runInteractiveConfiguration(cfg *config.Config) error {
 	}
 
 	// List AI  Providers
-	fmt.Println("🤖 AI Providers:")
-	fmt.Println("1. Gemini")
-	fmt.Println("2. OpenAI")
-	fmt.Println("3. Anthropic")
-	fmt.Printf("Enter the number of the provider you want to use: ")
+	ui.PrintInfoMessage("AI Providers:")
+	fmt.Println(ui.Cyan.Sprint("1. Gemini"))
+	fmt.Println(ui.Cyan.Sprint("2. OpenAI"))
+	fmt.Println(ui.Cyan.Sprint("3. Anthropic"))
+	fmt.Print(ui.Gold.Sprint("Enter the number of the provider you want to use: "))
 
 	if input := readInput(reader); input != "" {
 		cfg.AIProvider = providers[input]
@@ -145,7 +146,7 @@ func runInteractiveConfiguration(cfg *config.Config) error {
 
 	// Configure API Key (mandatory)
 	for {
-		fmt.Printf("🔑 API Key [%s]: ", maskAPIKey(cfg.APIKey))
+		fmt.Printf("%s API Key [%s]: ", ui.Gold.Sprint("🔑"), ui.Gray.Sprint(maskAPIKey(cfg.APIKey)))
 		if input := readInput(reader); input != "" {
 			cfg.APIKey = input
 			break
@@ -153,7 +154,7 @@ func runInteractiveConfiguration(cfg *config.Config) error {
 			// Keep existing API key
 			break
 		}
-		fmt.Println("❌ API Key is required. Please provide a valid API key.")
+		ui.PrintErrorMessage("API Key is required. Please provide a valid API key.")
 	}
 
 	// Get Models for provider
@@ -165,43 +166,43 @@ func runInteractiveConfiguration(cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to get models: %w", err)
 	}
-	fmt.Println("🧠 Models:")
+	ui.PrintInfoMessage("Available Models:")
 	for _, model := range models {
-		fmt.Printf("  - %s\n", model)
+		fmt.Printf("  - %s\n", ui.Cyan.Sprint(model))
 	}
 	// Configure Model
-	fmt.Printf("🧠 Select Model [%s]: ", cfg.Model)
+	fmt.Printf("%s Select Model [%s]: ", ui.Gold.Sprint("🧠"), ui.Gray.Sprint(cfg.Model))
 	if input := readInput(reader); input != "" {
 		cfg.Model = input
 	}
 
 	// Configure Max Tokens
-	fmt.Printf("📊 Max Tokens [%d]: ", cfg.MaxTokens)
+	fmt.Printf("%s Max Tokens [%s]: ", ui.Gold.Sprint("📊"), ui.Gray.Sprint(fmt.Sprintf("%d", cfg.MaxTokens)))
 	if input := readInput(reader); input != "" {
 		if tokens, err := parseIntInput(input); err == nil {
 			cfg.MaxTokens = tokens
 		} else {
-			fmt.Printf("⚠️  Invalid number format, using default: %d\n", cfg.MaxTokens)
+			ui.PrintWarningMessage(fmt.Sprintf("Invalid number format, using default: %d", cfg.MaxTokens))
 		}
 	}
 
 	// Configure Temperature
-	fmt.Printf("🌡️  Temperature [%.1f]: ", cfg.Temperature)
+	fmt.Printf("%s Temperature [%s]: ", ui.Gold.Sprint("🌡️"), ui.Gray.Sprint(fmt.Sprintf("%.1f", cfg.Temperature)))
 	if input := readInput(reader); input != "" {
 		if temp, err := parseFloatInput(input); err == nil && temp >= 0.0 && temp <= 1.0 {
 			cfg.Temperature = temp
 		} else {
-			fmt.Printf("⚠️  Invalid temperature (must be 0.0-1.0), using default: %.1f\n", cfg.Temperature)
+			ui.PrintWarningMessage(fmt.Sprintf("Invalid temperature (must be 0.0-1.0), using default: %.1f", cfg.Temperature))
 		}
 	}
 
 	// Configure Mode
 	fmt.Println()
-	fmt.Println("👑 Execution Mode Configuration:")
-	fmt.Println(" 1.  🤴 monarch     - For experienced rulers who know their domain well")
-	fmt.Println("                   Commands are shown without detailed explanations")
-	fmt.Println(" 2.  👑 royal-heir  - For heirs still learning the ways of the realm")
-	fmt.Println("                   Commands are shown with detailed explanations of each part")
+	ui.PrintInfoMessage("Execution Mode Configuration:")
+	fmt.Printf(" %s   %s - For experienced rulers who know their domain well\n", ui.Gold.Sprint("1."), ui.Gold.Sprint("🤴 monarch"))
+	fmt.Printf("                   %s\n", ui.Gray.Sprint("Commands are shown without detailed explanations"))
+	fmt.Printf(" %s   %s - For heirs still learning the ways of the realm\n", ui.Gold.Sprint("2."), ui.Gold.Sprint("👑 royal-heir"))
+	fmt.Printf("                   %s\n", ui.Gray.Sprint("Commands are shown with detailed explanations of each part"))
 	fmt.Println()
 
 	modeMap := map[string]string{
@@ -214,19 +215,19 @@ func runInteractiveConfiguration(cfg *config.Config) error {
 		if currentMode == "" {
 			currentMode = "not set"
 		}
-		fmt.Printf("🎯 Choose the number of the mode you want to use [%s]: ", currentMode)
+		fmt.Printf("%s Choose the number of the mode you want to use [%s]: ", ui.Gold.Sprint("🎯"), ui.Gray.Sprint(currentMode))
 		if input := readInput(reader); input != "" {
 			if mode, ok := modeMap[input]; ok {
 				cfg.Mode = mode
 				break
 			} else {
-				fmt.Println("❌ Invalid mode. Please enter either '1'(monarch) or '2'(royal-heir)")
+				ui.PrintErrorMessage("Invalid mode. Please enter either '1'(monarch) or '2'(royal-heir)")
 			}
 		} else if cfg.Mode != "" {
 			// Keep existing mode
 			break
 		} else {
-			fmt.Println("❌ Mode is required. Please enter either '1'(monarch) or '2'(royal-heir)")
+			ui.PrintErrorMessage("Mode is required. Please enter either '1'(monarch) or '2'(royal-heir)")
 		}
 	}
 
@@ -278,26 +279,29 @@ func isValidModelForProvider(model, provider string) bool {
 }
 
 func displayConfiguration(cfg *config.Config) {
-	fmt.Println("📋 Current Configuration:")
-	fmt.Println("┌─────────────────────────────────────────┐")
-	fmt.Printf("│ Provider:     %-25s │\n", cfg.AIProvider)
-	fmt.Printf("│ API Key:      %-25s │\n", maskAPIKey(cfg.APIKey))
-	fmt.Printf("│ Model:        %-25s │\n", cfg.Model)
-	fmt.Printf("│ Max Tokens:   %-25d │\n", cfg.MaxTokens)
-	fmt.Printf("│ Temperature:  %-25.1f │\n", cfg.Temperature)
-	fmt.Printf("│ Mode:         %-25s │\n", cfg.Mode)
-	fmt.Println("└─────────────────────────────────────────┘")
-	fmt.Println()
-
-	if cfg.Mode == "monarch" {
-		fmt.Println("🤴 You have chosen the path of the experienced monarch!")
-		fmt.Println("   Commands will be shown without detailed explanations.")
-	} else {
-		fmt.Println("👑 You have chosen the path of the learning heir!")
-		fmt.Println("   Commands will be shown with detailed explanations to aid your learning.")
+	// Create config map for structured display
+	configs := map[string]string{
+		"Provider":    ui.Cyan.Sprint(cfg.AIProvider),
+		"API Key":     ui.Gray.Sprint(maskAPIKey(cfg.APIKey)),
+		"Model":       ui.Cyan.Sprint(cfg.Model),
+		"Max Tokens":  ui.Blue.Sprint(fmt.Sprintf("%d", cfg.MaxTokens)),
+		"Temperature": ui.Blue.Sprint(fmt.Sprintf("%.1f", cfg.Temperature)),
+		"Mode":        ui.Purple.Sprint(cfg.Mode),
 	}
+	
+	ui.PrintConfigBox(configs)
 
-	fmt.Println()
-	fmt.Println("🎯 Your knight is now ready to serve!")
-	fmt.Println("💡 Try: execute-my-will \"list my files\"")
+	// Mode-specific message
+	var modeMsg string
+	if cfg.Mode == "monarch" {
+		modeMsg = "You have chosen the path of the experienced monarch!\nCommands will be shown without detailed explanations."
+	} else {
+		modeMsg = "You have chosen the path of the learning heir!\nCommands will be shown with detailed explanations to aid your learning."
+	}
+	
+	ui.PrintStatusBox("CONFIGURATION COMPLETE", modeMsg, "success")
+	
+	// Final message
+	finalMsg := "Your knight is now ready to serve!\n\n💡 Try: " + ui.CommandText("execute-my-will \"list my files\"")
+	ui.PrintStatusBox("READY TO SERVE", finalMsg, "info")
 }

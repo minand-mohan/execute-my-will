@@ -17,6 +17,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/minand-mohan/execute-my-will/internal/ui"
 )
 
 type Executor struct{}
@@ -26,17 +28,23 @@ func NewExecutor() CommandExecutor {
 	return &Executor{}
 }
 
-// Execute runs the command with full interactive terminal support
+// Execute runs the command with enhanced real-time output display
 func (e *Executor) Execute(command string, shell string) error {
-
-	fmt.Printf("🗡️  Executing thy will, my lord: %s\n", command)
-	fmt.Println("═══════════════════════════════════════════════════════")
+	ui.PrintExecutionHeader(fmt.Sprintf("Executing thy will, my lord: %s", command))
 
 	cmd := exec.Command(shell, "-c", command)
 
-	// Direct I/O connection - simplest and most compatible approach
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Create pipes to capture output for highlighting while still showing real-time
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %v", err)
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %v", err)
+	}
+
 	cmd.Stdin = os.Stdin
 
 	// Ensure the command runs in the foreground
@@ -45,9 +53,36 @@ func (e *Executor) Execute(command string, shell string) error {
 		Pgid:       0,
 	}
 
-	err := cmd.Run()
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return err
+	}
 
-	fmt.Println("═══════════════════════════════════════════════════════")
+	// Create output highlighter
+	highlighter := ui.NewOutputHighlighter(false, 1)
+
+	// Stream stdout and stderr concurrently
+	done := make(chan error, 2)
+
+	go func() {
+		done <- highlighter.StreamOutput(stdoutPipe, "")
+	}()
+
+	go func() {
+		done <- highlighter.StreamOutput(stderrPipe, "")
+	}()
+
+	// Wait for both streams to complete
+	for i := 0; i < 2; i++ {
+		if streamErr := <-done; streamErr != nil {
+			ui.PrintWarningMessage(fmt.Sprintf("Stream error: %v", streamErr))
+		}
+	}
+
+	// Wait for command to complete
+	err = cmd.Wait()
+
+	ui.PrintSeparator()
 
 	if err != nil {
 		return err
@@ -55,7 +90,7 @@ func (e *Executor) Execute(command string, shell string) error {
 	return nil
 }
 
-// ExecuteScript runs a script with comments displayed during execution
+// ExecuteScript runs a script with enhanced real-time output and comment display
 func (e *Executor) ExecuteScript(scriptContent string, shell string, showComments bool) error {
 	// Create temp directory
 	configDir, err := os.UserConfigDir()
@@ -72,8 +107,8 @@ func (e *Executor) ExecuteScript(scriptContent string, shell string, showComment
 	timestamp := time.Now().Format("20060102_150405")
 	scriptPath := filepath.Join(tmpDir, fmt.Sprintf("script_%s.sh", timestamp))
 
-	// Create executable script
-	scriptWithExecutor := e.createExecutableScript(scriptContent, showComments)
+	// Create executable script with enhanced output
+	scriptWithExecutor := e.createExecutableScriptWithOutput(scriptContent, showComments)
 
 	if err := ioutil.WriteFile(scriptPath, []byte(scriptWithExecutor), 0755); err != nil {
 		return fmt.Errorf("failed to write script file: %v", err)
@@ -86,14 +121,22 @@ func (e *Executor) ExecuteScript(scriptContent string, shell string, showComment
 		e.cleanupOldScripts(tmpDir)
 	}()
 
-	fmt.Printf("🗡️  Executing thy script, my lord\n")
-	fmt.Println("═══════════════════════════════════════════════════════")
+	ui.PrintExecutionHeader("Executing thy script, my lord")
 
-	// Execute the script with the specified shell
+	// Execute the script with enhanced output capture
 	cmd := exec.Command(shell, scriptPath)
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Create pipes for output capture
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %v", err)
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %v", err)
+	}
+
 	cmd.Stdin = os.Stdin
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -101,21 +144,49 @@ func (e *Executor) ExecuteScript(scriptContent string, shell string, showComment
 		Pgid:       0,
 	}
 
-	err = cmd.Run()
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return err
+	}
 
-	fmt.Println("═══════════════════════════════════════════════════════")
+	// Create output highlighter with timestamps for scripts
+	highlighter := ui.NewOutputHighlighter(true, 1)
+
+	// Stream outputs concurrently
+	done := make(chan error, 2)
+
+	go func() {
+		done <- highlighter.StreamOutput(stdoutPipe, "")
+	}()
+
+	go func() {
+		done <- highlighter.StreamOutput(stderrPipe, "")
+	}()
+
+	// Wait for both streams
+	for i := 0; i < 2; i++ {
+		if streamErr := <-done; streamErr != nil {
+			ui.PrintWarningMessage(fmt.Sprintf("Stream error: %v", streamErr))
+		}
+	}
+
+	// Wait for command completion
+	err = cmd.Wait()
+
+	ui.PrintSeparator()
 
 	return err
 }
 
-// createExecutableScript creates a bash script with error handling and comment display
-func (e *Executor) createExecutableScript(scriptContent string, showComments bool) string {
+// createExecutableScriptWithOutput creates a bash script with enhanced output and error handling
+func (e *Executor) createExecutableScriptWithOutput(scriptContent string, showComments bool) string {
 	lines := strings.Split(scriptContent, "\n")
 	var result strings.Builder
 
 	// Bash script header with error handling
 	result.WriteString("#!/bin/bash\n")
-	result.WriteString("set -e\n\n")
+	result.WriteString("set -e\n")
+	result.WriteString("set -o pipefail\n\n")
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -124,16 +195,24 @@ func (e *Executor) createExecutableScript(scriptContent string, showComments boo
 		}
 
 		if strings.HasPrefix(line, "#") && showComments {
-			// Display comment
+			// Display comment with medieval emoji
 			comment := strings.TrimPrefix(line, "#")
-			result.WriteString(fmt.Sprintf("echo '%s'\n", strings.TrimSpace(comment)))
+			comment = strings.TrimSpace(comment)
+			result.WriteString(fmt.Sprintf("echo '💬 %s'\n", comment))
 		} else if !strings.HasPrefix(line, "#") {
-			// Execute command
+			// Execute command with step indication
+			result.WriteString(fmt.Sprintf("echo '⚔️  Executing: %s'\n", line))
 			result.WriteString(fmt.Sprintf("%s\n", line))
+			result.WriteString("echo ''\n") // Add spacing between commands
 		}
 	}
 
 	return result.String()
+}
+
+// createExecutableScript creates a bash script with error handling and comment display (legacy method)
+func (e *Executor) createExecutableScript(scriptContent string, showComments bool) string {
+	return e.createExecutableScriptWithOutput(scriptContent, showComments)
 }
 
 // cleanupOldScripts removes script files older than 1 hour
