@@ -26,6 +26,46 @@ func visibleLen(text string) int {
 	return runewidth.StringWidth(cleaned)
 }
 
+// wrapText wraps text to fit within the specified width
+func (t *UITemplate) wrapText(text string, maxWidth int) []string {
+	// Handle explicit line breaks first
+	lines := strings.Split(text, "\n")
+	var result []string
+
+	for _, line := range lines {
+		if visibleLen(line) <= maxWidth {
+			result = append(result, line)
+			continue
+		}
+
+		// Word wrap long lines
+		words := strings.Fields(line)
+		var currentLine strings.Builder
+
+		for _, word := range words {
+			wordLen := visibleLen(word)
+			currentLen := visibleLen(currentLine.String())
+
+			// If adding this word would exceed the width, start a new line
+			if currentLen > 0 && currentLen+1+wordLen > maxWidth {
+				result = append(result, currentLine.String())
+				currentLine.Reset()
+			}
+
+			if currentLine.Len() > 0 {
+				currentLine.WriteString(" ")
+			}
+			currentLine.WriteString(word)
+		}
+
+		if currentLine.Len() > 0 {
+			result = append(result, currentLine.String())
+		}
+	}
+
+	return result
+}
+
 // UITemplate represents different UI layout templates
 type UITemplate struct {
 	width int
@@ -49,16 +89,27 @@ func (t *UITemplate) PrintMainSection(title string) {
 	fmt.Println()
 	border := strings.Repeat("━", t.width)
 	fmt.Println(Gold.Sprint(border))
-	// Calculate proper padding using visible length
-	contentWidth := t.width - 4 // Account for "┃ " and " ┃"
-	titleVisibleLen := visibleLen(title)
-	padding := contentWidth - titleVisibleLen
 
-	fmt.Printf("%s %s%s %s\n",
-		Gold.Sprint("┃"),
-		title,
-		strings.Repeat(" ", padding),
-		Gold.Sprint("┃"))
+	// Wrap content if it's too long
+	contentWidth := t.width - 4 // Account for "┃ " and " ┃"
+	wrappedLines := t.wrapText(title, contentWidth)
+
+	for _, line := range wrappedLines {
+		lineVisibleLen := visibleLen(line)
+		padding := contentWidth - lineVisibleLen
+
+		// Ensure padding is never negative
+		if padding < 0 {
+			padding = 0
+		}
+
+		fmt.Printf("%s %s%s %s\n",
+			Gold.Sprint("┃"),
+			line,
+			strings.Repeat(" ", padding),
+			Gold.Sprint("┃"))
+	}
+
 	fmt.Println(Gold.Sprint(border))
 	fmt.Println()
 }

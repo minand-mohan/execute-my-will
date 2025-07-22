@@ -28,7 +28,7 @@ func NewExecutor() *Executor {
 }
 
 func (e *Executor) Execute(command string, shell string) error {
-	ui.PrintExecutionHeader(fmt.Sprintf("Executing thy will, my lord: %s", command))
+	ui.PrintExecutionHeader(fmt.Sprintf("Executing thy will, my lord:\n%s", command))
 
 	cmd := exec.Command(shell, "/C", command)
 

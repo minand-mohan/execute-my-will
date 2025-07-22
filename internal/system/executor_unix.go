@@ -30,7 +30,7 @@ func NewExecutor() CommandExecutor {
 
 // Execute runs the command with enhanced real-time output display
 func (e *Executor) Execute(command string, shell string) error {
-	ui.PrintExecutionHeader(fmt.Sprintf("Executing thy will, my lord: %s", command))
+	ui.PrintExecutionHeader(fmt.Sprintf("Executing thy will, my lord:\n%s", command))
 
 	cmd := exec.Command(shell, "-c", command)
 
