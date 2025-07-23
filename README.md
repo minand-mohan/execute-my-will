@@ -13,15 +13,36 @@ A CLI application that interprets natural language intents and executes appropri
 - Natural language command interpretation
 - AI-powered command generation (Gemini, OpenAI, Anthropic)
 - **Two execution modes**: Monarch (streamlined) and Royal-Heir (educational)
-- System analysis and validation
+- System analysis and validation with environment safety checks
 - Safe command confirmation with detailed explanations (Royal-Heir mode)
 - Alias and environment awareness
-- Cross-platform support (Linux focus)
+- Cross-platform support (Linux, macOS, Windows)
 - Simple configuration management
+- Comprehensive UI system with medieval knight theming
+- Real-time output highlighting and pattern matching
+- Multi-step script execution with progress indicators
 
 ## Installation
 
+### Prerequisites
 ```bash
+# Install required dependencies
+go install golang.org/x/tools/cmd/goimports@latest
+```
+
+### Building
+
+```bash
+# Build for current platform
+make build
+
+# Build for all platforms (Linux, macOS, Windows)
+make build-all
+
+# Install to GOPATH/bin
+make install
+
+# Manual build (alternative)
 go build -o execute-my-will cmd/execute-my-will/main.go
 ```
 
@@ -149,13 +170,16 @@ You can temporarily override your configured mode for a single command:
 
 ## Safety Features
 
+- **Environment validation**: Blocks commands that would change shell environment (exports, cd, source) since they won't persist
+- **Intent validation**: Additional safety layer checking for directory operations and unsafe commands
 - **Configuration validation**: Ensures all required settings are present including execution mode
-- **Command confirmation**: Always asks before executing commands
+- **Command confirmation**: Always asks before executing commands with clear explanations
 - **Educational explanations**: Royal-heir mode provides detailed breakdowns to help users understand commands
-- **Directory validation**: Checks that referenced directories exist
-- **System analysis**: Understands your shell, aliases, and available commands
+- **Directory validation**: Checks that referenced directories exist before command generation
+- **System analysis**: Understands your shell, aliases, and available commands for context-aware generation
 - **Safe command generation**: AI is instructed to generate safe, non-destructive commands
 - **Mode validation**: Ensures only valid execution modes are accepted
+- **Cross-platform safety**: Different validation rules for Unix vs Windows environments
 
 ## Configuration Commands
 
@@ -188,6 +212,85 @@ Default model: `gpt-3.5-turbo`
 ./execute-my-will configure --provider anthropic --api-key your-anthropic-key
 ```
 Default model: `claude-3-sonnet-20240229`
+
+## Development
+
+### Development Commands
+
+```bash
+# Download and tidy dependencies
+make deps
+
+# Format code (includes goimports)
+make fmt
+
+# Run linter
+make vet
+
+# Run all tests with coverage (generates coverage.html)
+make test
+
+# Run tests only
+go test -v -race ./test/
+
+# Run specific test
+go test ./test -run TestEnvironmentValidator
+
+# Run all checks (test + vet)
+make check
+
+# Run in development mode
+make dev ARGS="configure"
+
+# Clean build artifacts
+make clean
+
+# Run full CI pipeline locally
+make ci
+
+# Check if ready for release
+make release-check
+
+# Update version (e.g., make update-version VERSION=1.2.3)
+make update-version VERSION=x.y.z
+
+# Show all available commands
+make help
+```
+
+### Testing Strategy
+
+The project includes comprehensive unit tests located in the `/test` directory:
+- `env_validator_test.go` - Environment validator functionality
+- `intent_validator_test.go` - Intent validation for directory operations
+- `ai_client_test.go` - AI provider integration tests
+- `command_executor_test.go` - Command execution logic
+- `system_analyzer_test.go` - System analysis functionality
+- `config_test.go` - Configuration management
+- `cli_configure_test.go` - CLI configuration tests
+- `error_handling_test.go` - Error handling scenarios
+- `mocks.go` - Test mocks and utilities
+
+All tests run with race detection and generate coverage reports as `coverage.html`.
+
+## UI System
+
+The application features a comprehensive UI system with medieval knight theming:
+
+### Key UI Components
+- **Status Boxes**: Structured status displays with color coding
+- **Command Boxes**: Proposed command display with syntax highlighting
+- **Script Boxes**: Multi-step script display with mode awareness
+- **Execution Headers**: Command/script execution progress indicators
+- **Phase Headers**: Process phase transitions with themed icons
+- **Configuration Display**: Structured configuration tables
+
+### UI Features
+- **Mode Awareness**: Royal-heir mode shows detailed explanations, monarch mode shows streamlined output
+- **Real-time Highlighting**: Pattern matching for errors, warnings, success indicators
+- **Cross-platform Consistency**: Unified experience across Unix and Windows
+- **Text Wrapping**: Proper handling of long content with emoji-aware width calculations
+- **Medieval Knight Theme**: Consistent theming with appropriate emojis and terminology
 
 Your faithful digital knight awaits your commands! ⚔️
 
