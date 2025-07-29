@@ -56,6 +56,9 @@ func init() {
 	// Add configure subcommand
 	rootCmd.AddCommand(configureCmd)
 
+	// Add test-my-will subcommand
+	rootCmd.AddCommand(testMyWillCmd)
+
 	// Add mode flag
 	rootCmd.Flags().String("mode", "", "Execution mode: monarch (no explanations) or royal-heir (detailed explanations)")
 }
@@ -119,7 +122,7 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	// Validate the intent
 	validator := system.NewValidator(sysInfo)
 	if err := validator.ValidateIntent(intent); err != nil {
-		ui.PrintStatusBox("⚠️  REQUEST CLARIFICATION NEEDED", fmt.Sprintf("Forgive me sire, but your request needs clarification: %s", err.Error()), "warning")
+		ui.PrintStatusBox("📋 QUEST NEEDS CLARIFICATION", fmt.Sprintf("My lord, your request needs clarification: %s", err.Error()), "warning")
 		return nil
 	}
 
@@ -141,7 +144,22 @@ func executeWill(cmd *cobra.Command, args []string) error {
 	// Handle different response types
 	switch response.Type {
 	case ai.ResponseTypeFailure:
-		ui.PrintStatusBox("❌ QUEST CANNOT BE COMPLETED", fmt.Sprintf("Alas, I cannot fulfill this quest: %s", response.Error), "error")
+		// Determine the appropriate icon and title based on the failure reason
+		var icon, title string
+		errorMsg := strings.ToLower(response.Error)
+
+		if strings.Contains(errorMsg, "safety") || strings.Contains(errorMsg, "destructive") || strings.Contains(errorMsg, "cannot fulfill") {
+			icon = "🛡️"
+			title = "QUEST DECLINED FOR SAFETY"
+		} else if strings.Contains(errorMsg, "vague") || strings.Contains(errorMsg, "specific") || strings.Contains(errorMsg, "unclear") {
+			icon = "📋"
+			title = "QUEST NEEDS CLARIFICATION"
+		} else {
+			icon = "❌"
+			title = "QUEST CANNOT BE COMPLETED"
+		}
+
+		ui.PrintStatusBox(fmt.Sprintf("%s %s", icon, title), fmt.Sprintf("My lord, %s", response.Error), "warning")
 		return nil
 
 	case ai.ResponseTypeCommand:

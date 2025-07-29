@@ -170,16 +170,25 @@ You can temporarily override your configured mode for a single command:
 
 ## Safety Features
 
-- **Environment validation**: Blocks commands that would change shell environment (exports, cd, source) since they won't persist
-- **Intent validation**: Additional safety layer checking for directory operations and unsafe commands
-- **Configuration validation**: Ensures all required settings are present including execution mode
-- **Command confirmation**: Always asks before executing commands with clear explanations
-- **Educational explanations**: Royal-heir mode provides detailed breakdowns to help users understand commands
-- **Directory validation**: Checks that referenced directories exist before command generation
-- **System analysis**: Understands your shell, aliases, and available commands for context-aware generation
-- **Safe command generation**: AI is instructed to generate safe, non-destructive commands
-- **Mode validation**: Ensures only valid execution modes are accepted
-- **Cross-platform safety**: Different validation rules for Unix vs Windows environments
+- **Multi-Layer Safety System**: Comprehensive protection at every level
+  - **Environment validation**: Blocks commands that would change shell environment (exports, cd, source) since they won't persist
+  - **Intent validation**: Additional safety layer checking for directory operations and unsafe commands
+  - **AI Provider Safety Integration**: Intelligently handles when AI providers refuse dangerous requests
+  - **Smart Safety Categorization**: Different responses for destructive, illegal, policy-violating, or vague requests
+
+- **Advanced Request Handling**:
+  - **🛡️ Destructive Operations**: Properly refused with safety guidance
+  - **📋 Vague Requests**: Require clarification with helpful suggestions  
+  - **⚖️ Policy Violations**: Educational responses about appropriate usage
+  - **✅ Safe Operations**: Executed with appropriate confirmation
+
+- **Comprehensive Validation**:
+  - **Configuration validation**: Ensures all required settings are present including execution mode
+  - **Command confirmation**: Always asks before executing commands with clear explanations
+  - **Educational explanations**: Royal-heir mode provides detailed breakdowns to help users understand commands
+  - **Directory validation**: Checks that referenced directories exist before command generation
+  - **System analysis**: Understands your shell, aliases, and available commands for context-aware generation
+  - **Cross-platform safety**: Different validation rules for Unix vs Windows environments
 
 ## Configuration Commands
 
@@ -192,6 +201,30 @@ You can temporarily override your configured mode for a single command:
 | `configure --model MODEL` | Set model name |
 | `configure --max-tokens N` | Set maximum tokens |
 | `configure --temperature N` | Set temperature (0.0-1.0) |
+
+## Testing Your Knight's Will
+
+Execute My Will includes a comprehensive quest system to test your knight's prowess in interpreting commands:
+
+| Command | Description |
+|---------|-------------|
+| `test-my-will` | Challenge your knight with all noble quests |
+| `test-my-will --max-complexity N` | Test only up to quest difficulty level N |
+| `test-my-will --complexity N` | Test only quests of specific difficulty level N |
+| `test-my-will --test-file FILE` | Use custom quest scenarios from JSON file |
+| `test-my-will --verbose` | Show detailed quest results |
+| `test-my-will --save-results` | Save quest results to royal scrolls |
+
+### Knight Testing Features
+
+- **26 Noble Quests**: Comprehensive challenges across 10 difficulty levels
+- **Custom Quests**: Define your own test scenarios in JSON format
+- **Honor System**: Intelligent pattern matching and scoring algorithm
+- **Difficulty Mastery**: Performance breakdown by quest complexity
+- **Knight Comparison**: Compare different AI oracles and configurations
+- **Progress Chronicles**: Save results to track your knight's improvement
+
+See `docs/accuracy-testing.md` for detailed documentation.
 
 ## Supported AI Providers
 

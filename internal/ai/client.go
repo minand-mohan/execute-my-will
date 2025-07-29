@@ -52,6 +52,13 @@ func (c *clientImpl) GenerateResponse(intent string, sysInfo *system.Info) (*AIR
 	prompt := buildCommandPrompt(intent, sysInfo)
 	response, err := exponentialRetryForAiResponse(c.provider.GenerateResponse, prompt, 5, 1*time.Second)
 	if err != nil {
+		// Check if this is a provider safety refusal
+		if isProviderSafetyRefusal(err) {
+			return &AIResponse{
+				Type:  ResponseTypeFailure,
+				Error: formatSafetyRefusalMessage(err),
+			}, nil
+		}
 		return nil, err
 	}
 	return parseAIResponse(response), nil
@@ -229,6 +236,82 @@ func parseAIResponse(response string) *AIResponse {
 		Type:    ResponseTypeCommand,
 		Content: response,
 	}
+}
+
+// isProviderSafetyRefusal checks if an error indicates the AI provider refused a request for safety reasons
+func isProviderSafetyRefusal(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errorMsg := strings.ToLower(err.Error())
+
+	// Common patterns in AI provider safety refusals
+	safetyPatterns := []string{
+		"safety",
+		"harmful",
+		"dangerous",
+		"destructive",
+		"cannot fulfill",
+		"cannot be fulfilled",
+		"safety constraints",
+		"policy",
+		"guidelines",
+		"inappropriate",
+		"malicious",
+		"refused",
+		"decline",
+		"unable to assist",
+		"cannot help",
+		"cannot provide",
+		"not allowed",
+		"violates",
+		"against our guidelines",
+		"content policy",
+		"ethical",
+		"responsible ai",
+		"content guidelines",
+		"terms of service",
+		"unethical",
+		"illegal",
+		"prohibited",
+		"restricted",
+		"blocked",
+		"filtered",
+	}
+
+	for _, pattern := range safetyPatterns {
+		if strings.Contains(errorMsg, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// formatSafetyRefusalMessage creates a user-friendly message for safety refusals
+func formatSafetyRefusalMessage(err error) string {
+	errorMsg := strings.ToLower(err.Error())
+
+	// Categorize the type of safety refusal
+	if strings.Contains(errorMsg, "destructive") || strings.Contains(errorMsg, "delete") || strings.Contains(errorMsg, "remove") {
+		return "I cannot execute destructive operations that could harm your system or data. Please specify a safer alternative approach."
+	}
+
+	if strings.Contains(errorMsg, "illegal") || strings.Contains(errorMsg, "unethical") {
+		return "This request appears to involve activities that may be inappropriate. I can only assist with legitimate and ethical tasks."
+	}
+
+	if strings.Contains(errorMsg, "policy") || strings.Contains(errorMsg, "guidelines") {
+		return "This request conflicts with AI safety guidelines. Please rephrase your request to focus on constructive and safe operations."
+	}
+
+	if strings.Contains(errorMsg, "vague") || strings.Contains(errorMsg, "unclear") || strings.Contains(errorMsg, "specific") {
+		return "Your request needs to be more specific. Please provide clear details about what you want to accomplish and where."
+	}
+
+	// Default safety refusal message
+	return "I cannot fulfill this request due to safety considerations. Please try a different approach or provide more specific, constructive details."
 }
 
 func exponentialRetryForAiResponse(fn func(string) (string, error), prompt string, maxRetries int, delay time.Duration) (string, error) {
